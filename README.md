@@ -29,7 +29,7 @@ The first build downloads images and Maven/npm packages. After the services beco
 
 Other demo accounts: `instructor@example.test` and `admin@example.test`, both using `DemoPass123!`. Change all credentials for any shared environment. Copy `.env.example` to `.env` to configure passwords, a YouTube video ID, or the attendance threshold. `.env` is ignored by Git.
 
-The demo user is already enrolled in Yoga Everyday. The API creates a short live demo session on startup. Regular Yoga slots are materialized 14 days ahead by the scheduler. A real YouTube Live ID can be set through `YOUTUBE_VIDEO_ID` for newly created demo and scheduled sessions; the platform does not host video. To test a stream immediately, sign in as admin and use **Create a live session** with a YouTube Live URL. Fake WhatsApp messages appear in the admin portal after reminders and qualified attendance. A fresh demo session is created each day.
+The demo user is already enrolled in Yoga Everyday. The API creates a short live demo session on startup. Regular Yoga slots are materialized 14 days ahead by the scheduler. A real YouTube Live ID can be set through `YOUTUBE_VIDEO_ID` for newly created demo and scheduled sessions; the platform does not host video. To test a stream immediately, sign in as admin and use **Create a live session** with a YouTube Live URL. The form returns a member class link to copy and open while signed in as an enrolled member. Fake WhatsApp messages appear in the admin portal after reminders and qualified attendance. A fresh demo session is created each day.
 
 ### Instructor onboarding
 

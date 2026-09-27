@@ -75,7 +75,7 @@ test('admin assigns the supplied YouTube Live link to a session',async({page})=>
   await form.getByLabel('Instructor').selectOption({label:'Asha Rao (instructor@example.test)'});
   await form.getByLabel('YouTube Live ID or URL').fill('https://www.youtube.com/live/GfvVuG5mXsA?si=MLqykU9yenqZaasW');
   await form.getByRole('button',{name:'Start test session now'}).click();
-  const created=page.getByText(/Live session created:/);
+  const created=page.getByText(/Member class link:/);
   await expect(created).toBeVisible();
   const sessionId=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];
   expect(sessionId).toBeTruthy();
