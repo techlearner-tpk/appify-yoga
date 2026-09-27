@@ -4,13 +4,17 @@ A local first wellness platform with a Next.js PWA, Spring Boot API, PostgreSQL,
 
 ## Start
 
+Start Docker Desktop (or a compatible Docker Engine), then run:
+
 ```sh
 git clone https://github.com/techlearner-tpk/appify-yoga.git
 cd appify-yoga
-docker compose up --build
+cp .env.example .env  # optional: set passwords and YOUTUBE_VIDEO_ID before startup
+docker compose up --build -d
+docker compose ps
 ```
 
-Docker Desktop or a compatible Docker Engine is the only required host dependency. The first build downloads images and Maven/npm packages.
+The first build downloads images and Maven/npm packages. After the services become healthy, open http://localhost:3000. Use `docker compose logs -f backend-api frontend` if startup takes longer than expected. Git and Docker are needed for these steps; the `make` commands below also require Make.
 
 | Service | URL | Local credentials |
 | --- | --- | --- |

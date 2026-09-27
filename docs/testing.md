@@ -4,7 +4,7 @@
 - Frontend unit and production build: `cd frontend && npm ci && npm test && npm run build`.
 - Compose smoke and primary API flow: `make integration-test`. The flow waits about one minute for real attendance time.
 - Browser flow: `make e2e-test`. It builds a Playwright container; host Node and browser binaries are not required.
-- Configurable load: `VUS=100 make load-test`. Use separate user accounts and test infrastructure for higher concurrency profiles.
+- Configurable load: `VUS=100 EMAIL_PREFIX=load make load-test`. The prefix makes the script register separate user accounts; use suitable test infrastructure for higher concurrency profiles.
 
 The current tests cover attendance rule boundaries, package direction, UI states, and a demo browser navigation. The Compose scripts check readiness, registration through delivered fake WhatsApp, and MinIO image storage. The requested broader Testcontainers, messaging restart, concurrency, resilience, and measured P50/P95/P99 test suite remains to be added before production use. k6 itself reports latency percentiles, throughput, and errors.
 
