@@ -9,6 +9,7 @@ COPY . .
 RUN npm run build
 FROM node:22-alpine
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=build /app/public ./public

@@ -94,6 +94,7 @@ services:
     build: ./frontend
     environment:
       BACKEND_URL: http://backend-api:8080
+      HOSTNAME: 0.0.0.0
     ports: ['127.0.0.1:3000:3000']
     depends_on:
       backend-api: {condition: service_healthy}
