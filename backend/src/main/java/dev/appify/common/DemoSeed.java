@@ -20,6 +20,7 @@ public class DemoSeed implements CommandLineRunner {
     seedUser("member@example.test","Demo Member","USER","DEMOUSER");
     seedUser("instructor@example.test","Demo Instructor","INSTRUCTOR","DEMOINST");
     seedUser("admin@example.test","Demo Admin","ADMIN","DEMOADMIN");
+    db.update("update instructor set user_id=? where id='10000000-0000-0000-0000-000000000001' and user_id is null",UUID.nameUUIDFromBytes("instructor@example.test".getBytes(StandardCharsets.UTF_8)));
     UUID demoId=UUID.nameUUIDFromBytes(("demo-session:"+LocalDate.now()).getBytes(StandardCharsets.UTF_8)); Instant start=Instant.now().minusSeconds(15);
     db.update("insert into session(id,program_id,instructor_id,starts_at,ends_at,timezone,status,delivery_type,youtube_video_id) values(?,'20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',?,?,'Asia/Kolkata','LIVE','LIVE',?) on conflict(id) do nothing",demoId,Timestamp.from(start),Timestamp.from(start.plusSeconds(180)),video);
   }

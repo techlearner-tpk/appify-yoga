@@ -5,9 +5,13 @@ test('member can sign in, see classes, and open a live class',async({page})=>{
   await page.getByLabel('Password').fill('DemoPass123!');
   await page.getByRole('button',{name:'Sign in →'}).click();
   await expect(page.getByRole('heading',{name:/Good day/})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Instructor view'})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'Admin portal'})).toHaveCount(0);
   await expect(page.getByText('Yoga Everyday').first()).toBeVisible();
   await page.getByRole('link',{name:'View next class →'}).click();
   await expect(page.getByRole('heading',{name:'Yoga Everyday',level:1})).toBeVisible();
+  await page.goto('/instructor');
+  await expect(page.getByText('Instructor access is granted by an admin.')).toBeVisible();
 });
 
 test('admin publishes a library image through the web app',async({page})=>{
@@ -16,6 +20,8 @@ test('admin publishes a library image through the web app',async({page})=>{
   await page.getByLabel('Password').fill('DemoPass123!');
   await page.getByRole('button',{name:'Sign in →'}).click();
   await expect(page.getByRole('heading',{name:/Good day/})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Instructor view'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Admin portal'})).toBeVisible();
   await page.goto('/admin');
   const title=`Browser article ${Date.now()}`;
   await page.getByLabel('Title').fill(title);
@@ -25,4 +31,65 @@ test('admin publishes a library image through the web app',async({page})=>{
   await expect(page.getByText(/Published:/)).toBeVisible();
   await page.goto('/library');
   await expect(page.getByRole('heading',{name:title})).toBeVisible();
+});
+
+test('admin onboards a registered member as an instructor',async({page})=>{
+  const email=`instructor-${Date.now()}@example.test`,password='DemoPass123!';
+  await page.goto('/register');
+  await page.getByLabel('Your name').fill('New Instructor');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(password);
+  await page.getByRole('button',{name:'Create account →'}).click();
+  await expect(page.getByRole('heading',{name:'Find your rhythm.',level:1})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Instructor view'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Sign out ↗'}).click();
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('admin@example.test');
+  await page.getByLabel('Password').fill(password);
+  await page.getByRole('button',{name:'Sign in →'}).click();
+  await expect(page.getByRole('link',{name:'Admin portal'})).toBeVisible();
+  await page.getByRole('link',{name:'Admin portal'}).click();
+  await page.getByLabel('Registered email').fill(email);
+  await page.getByRole('button',{name:'Grant instructor access'}).click();
+  await expect(page.getByText(`${email} can now sign in as an instructor.`)).toBeVisible();
+  await page.getByRole('button',{name:'Sign out ↗'}).click();
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill(password);
+  await page.getByRole('button',{name:'Sign in →'}).click();
+  await expect(page.getByRole('link',{name:'Instructor view'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Admin portal'})).toHaveCount(0);
+  await page.getByRole('link',{name:'Instructor view'}).click();
+  await expect(page.getByText('No classes are assigned yet.')).toBeVisible();
+});
+
+test('admin assigns the supplied YouTube Live link to a session',async({page})=>{
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('admin@example.test');
+  await page.getByLabel('Password').fill('DemoPass123!');
+  await page.getByRole('button',{name:'Sign in →'}).click();
+  await expect(page.getByRole('link',{name:'Admin portal'})).toBeVisible();
+  await page.getByRole('link',{name:'Admin portal'}).click();
+  const form=page.locator('form').filter({has:page.getByRole('heading',{name:'Create a live session'})});
+  await form.getByLabel('Program').selectOption({label:'Yoga Everyday'});
+  await form.getByLabel('Instructor').selectOption({label:'Asha Rao (instructor@example.test)'});
+  await form.getByLabel('YouTube Live ID or URL').fill('https://www.youtube.com/live/GfvVuG5mXsA?si=MLqykU9yenqZaasW');
+  await form.getByRole('button',{name:'Start test session now'}).click();
+  const created=page.getByText(/Live session created:/);
+  await expect(created).toBeVisible();
+  const sessionId=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];
+  expect(sessionId).toBeTruthy();
+  await page.getByRole('button',{name:'Sign out ↗'}).click();
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('member@example.test');
+  await page.getByLabel('Password').fill('DemoPass123!');
+  await page.getByRole('button',{name:'Sign in →'}).click();
+  await expect(page.getByRole('heading',{name:/Good day/})).toBeVisible();
+  await page.goto(`/live/${sessionId}`);
+  const attendanceResponse=page.waitForResponse(response=>response.url().includes('/api/backend/attendance/start'));
+  await page.getByRole('button',{name:'Join live & track attendance →'}).click();
+  const started=await attendanceResponse;
+  expect(started.status(),await started.text()).toBe(200);
+  await expect(page.locator('iframe[title="YouTube Live class"]')).toBeVisible();
+  await expect(page.locator('iframe[title="YouTube Live class"]')).toHaveAttribute('src',/youtube-nocookie.com\/embed\/GfvVuG5mXsA/);
 });

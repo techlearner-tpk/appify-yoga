@@ -33,9 +33,10 @@ public class AdminController {
     UUID id=UUID.randomUUID(); db.update("insert into class_series(id,program_id,local_time,timezone,duration_minutes,youtube_video_id) values(?,?,?::time,?,?,?)",id,p.programId(),p.localTime(),p.timezone(),p.durationMinutes(),p.youtubeVideoId());audit((UUID)auth.getPrincipal(),"SCHEDULE_CHANGED","class_series",id);return Map.of("id",id);
   }
   @GetMapping("/schedules") public List<Map<String,Object>> schedules() {return db.queryForList("select * from class_series order by local_time");}
-  public record SessionInput(UUID programId,Instant startsAt,int durationMinutes,String youtubeVideoId) {}
+  public record SessionInput(UUID programId,UUID instructorId,Instant startsAt,int durationMinutes,String youtubeVideoId) {}
   @PostMapping("/sessions") public Map<String,Object> session(@RequestBody SessionInput p,Authentication auth) {
-    UUID id=UUID.randomUUID();db.update("insert into session(id,program_id,starts_at,ends_at,timezone,youtube_video_id,status) values(?,?,?,?,? ,?,'LIVE')",id,p.programId(),Timestamp.from(p.startsAt()),Timestamp.from(p.startsAt().plusSeconds(p.durationMinutes()*60L)),"Asia/Kolkata",p.youtubeVideoId());audit((UUID)auth.getPrincipal(),"SESSION_CREATED","session",id);return Map.of("id",id);
+    if(p.programId()==null || p.startsAt()==null || p.durationMinutes()<1) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Program, start time and duration required");
+    UUID id=UUID.randomUUID();db.update("insert into session(id,program_id,instructor_id,starts_at,ends_at,timezone,youtube_video_id,status) values(?,?,?,?,?,?,?,'LIVE')",id,p.programId(),p.instructorId(),Timestamp.from(p.startsAt()),Timestamp.from(p.startsAt().plusSeconds(p.durationMinutes()*60L)),"Asia/Kolkata",p.youtubeVideoId());audit((UUID)auth.getPrincipal(),"SESSION_CREATED","session",id);return Map.of("id",id);
   }
   @GetMapping("/sessions") public List<Map<String,Object>> sessions() {return db.queryForList("select * from session order by starts_at desc limit 200");}
   @GetMapping("/attendance") public List<Map<String,Object>> attendance() {return db.queryForList("select a.*,u.email from attendance a join app_user u on u.id=a.user_id order by a.created_at desc limit 200");}
