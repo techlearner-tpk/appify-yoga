@@ -1,6 +1,10 @@
-import {render,screen} from '@testing-library/react';import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';import {ClassAction} from './ClassAction';
-describe('class timing',()=>{beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(new Date('2026-01-01T10:00:00Z'))});afterEach(()=>vi.useRealTimers());
-  it('shows a countdown before class',()=>{render(<ClassAction session={{id:'one',starts_at:'2026-01-01T10:10:00Z',ends_at:'2026-01-01T11:00:00Z'}}/>);expect(screen.getByText('In 10 min ↗')).toBeTruthy()});
-  it('shows join only while live',()=>{render(<ClassAction session={{id:'one',starts_at:'2026-01-01T09:00:00Z',ends_at:'2026-01-01T11:00:00Z'}}/>);expect(screen.getByText('Join live ↗')).toBeTruthy()});
-  it('shows completed after class',()=>{render(<ClassAction session={{id:'one',starts_at:'2026-01-01T08:00:00Z',ends_at:'2026-01-01T09:00:00Z'}}/>);expect(screen.getByText('Completed ✓')).toBeTruthy()});
+import {render,screen} from '@testing-library/react';
+import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
+import {ClassAction,MemberSlot} from './ClassAction';
+const slot:MemberSlot={slotId:'one',programName:'Yoga',displayDate:'2026-01-01',startTime:'10:00',endTime:'11:00',startsAt:'2026-01-01T10:00:00Z',endsAt:'2026-01-01T11:00:00Z',joinAvailability:'SESSION_NOT_OPEN',selected:false,joined:false,completed:false};
+describe('member class action',()=>{beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(new Date('2026-01-01T10:00:00Z'))});afterEach(()=>vi.useRealTimers());
+ it('shows a neutral class link before opening',()=>{render(<ClassAction session={slot}/>);expect(screen.getByRole('link',{name:'View class →'})).toBeTruthy()});
+ it('shows enter when entitled',()=>{render(<ClassAction session={{...slot,joinAvailability:'ALLOW'}}/>);expect(screen.getByRole('link',{name:'Enter class →'})).toBeTruthy()});
+ it('blocks another slot after a join',()=>{render(<ClassAction session={{...slot,joinAvailability:'ALREADY_ATTENDED_TODAY'}}/>);expect(screen.getByText('Another class joined today')).toBeTruthy()});
+ it('shows completed attendance',()=>{render(<ClassAction session={{...slot,completed:true}}/>);expect(screen.getByText('Completed ✓')).toBeTruthy()});
 });

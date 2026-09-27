@@ -1,7 +1,10 @@
 package dev.appify.admin;
 
+import dev.appify.media.DailySessionAssetService;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -11,12 +14,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 import dev.appify.events.MessagingConfig;
 
 @RestController @RequestMapping("/api/admin")
 public class AdminController {
-  private final JdbcTemplate db; private final RabbitAdmin rabbit;
-  public AdminController(JdbcTemplate db,org.springframework.amqp.rabbit.connection.ConnectionFactory cf) {this.db=db;this.rabbit=new RabbitAdmin(cf);}
+  private final JdbcTemplate db; private final RabbitAdmin rabbit;private final DailySessionAssetService assets;
+  public AdminController(JdbcTemplate db,org.springframework.amqp.rabbit.connection.ConnectionFactory cf,DailySessionAssetService assets) {this.db=db;this.rabbit=new RabbitAdmin(cf);this.assets=assets;}
   @GetMapping("/dashboard") public Map<String,Object> dashboard() {
     Integer queue=null; try {var props=rabbit.getQueueProperties(MessagingConfig.QUEUE); if(props!=null) queue=(Integer)props.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);} catch(Exception ignored) {}
     return Map.of("users",db.queryForObject("select count(*) from app_user",Integer.class),"activeUsers",db.queryForObject("select count(distinct user_id) from attendance where joined_at>now()-interval '30 days'",Integer.class),"todaySessions",db.queryForObject("select count(*) from session where starts_at::date=current_date",Integer.class),"todayAttendance",db.queryForObject("select count(*) from attendance where joined_at::date=current_date",Integer.class),"qualifiedAttendance",db.queryForObject("select count(*) from attendance where qualified=true",Integer.class),"failedMessages",db.queryForObject("select count(*) from notification where status='FAILED'",Integer.class),"queueDepth",queue==null?-1:queue);
@@ -24,21 +28,26 @@ public class AdminController {
   @GetMapping("/users") public List<Map<String,Object>> users() {return db.queryForList("select id,email,display_name,role,disabled,created_at from app_user order by created_at desc limit 200");}
   @GetMapping("/programs") public List<Map<String,Object>> programs() {return db.queryForList("select * from program order by created_at desc");}
   public record ProgramInput(String name,String description,String difficulty,int durationMinutes,String programType) {}
-  @PostMapping("/programs") public Map<String,Object> createProgram(@RequestBody ProgramInput p,Authentication auth) {
+  @PostMapping("/programs") @Transactional public Map<String,Object> createProgram(@RequestBody ProgramInput p,Authentication auth) {
     if(p.name()==null || p.name().isBlank() || p.durationMinutes()<1) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Name and duration required");
-    UUID id=UUID.randomUUID();db.update("insert into program(id,name,description,difficulty,duration_minutes,program_type) values(?,?,?,?,?,?)",id,p.name(),p.description()==null?"":p.description(),p.difficulty()==null?"BEGINNER":p.difficulty(),p.durationMinutes(),p.programType()==null?"YOGA":p.programType());audit((UUID)auth.getPrincipal(),"PROGRAM_CREATED","program",id);return Map.of("id",id);
+    UUID id=UUID.randomUUID();db.update("insert into program(id,name,description,difficulty,duration_minutes,program_type) values(?,?,?,?,?,?)",id,p.name(),p.description()==null?"":p.description(),p.difficulty()==null?"BEGINNER":p.difficulty(),p.durationMinutes(),p.programType()==null?"YOGA":p.programType());db.update("insert into program_session_policy(program_id,duration_minutes) values(?,?)",id,p.durationMinutes());audit((UUID)auth.getPrincipal(),"PROGRAM_CREATED","program",id);return Map.of("id",id);
   }
-  public record ScheduleInput(UUID programId,String localTime,String timezone,int durationMinutes,String youtubeVideoId) {}
+  public record ScheduleInput(UUID programId,String localTime,String timezone,int durationMinutes) {}
   @PostMapping("/schedules") public Map<String,Object> schedule(@RequestBody ScheduleInput p,Authentication auth) {
-    UUID id=UUID.randomUUID(); db.update("insert into class_series(id,program_id,local_time,timezone,duration_minutes,youtube_video_id) values(?,?,?::time,?,?,?)",id,p.programId(),p.localTime(),p.timezone(),p.durationMinutes(),p.youtubeVideoId());audit((UUID)auth.getPrincipal(),"SCHEDULE_CHANGED","class_series",id);return Map.of("id",id);
+    UUID id=UUID.randomUUID();int sequence=db.queryForObject("select coalesce(max(sequence_number),0)+1 from class_series where program_id=?",Integer.class,p.programId());db.update("insert into class_series(id,program_id,local_time,timezone,duration_minutes,sequence_number) values(?,?,?::time,?,?,?)",id,p.programId(),p.localTime(),p.timezone(),p.durationMinutes(),sequence);db.update("update program_session_policy set source_series_id=? where program_id=? and source_series_id is null",id,p.programId());audit((UUID)auth.getPrincipal(),"SCHEDULE_CHANGED","class_series",id);return Map.of("id",id);
   }
   @GetMapping("/schedules") public List<Map<String,Object>> schedules() {return db.queryForList("select * from class_series order by local_time");}
   public record SessionInput(UUID programId,UUID instructorId,Instant startsAt,int durationMinutes,String youtubeVideoId) {}
-  @PostMapping("/sessions") public Map<String,Object> session(@RequestBody SessionInput p,Authentication auth) {
+  @PostMapping("/sessions") @Transactional public Map<String,Object> session(@RequestBody SessionInput p,Authentication auth) {
     if(p.programId()==null || p.startsAt()==null || p.durationMinutes()<1) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Program, start time and duration required");
-    UUID id=UUID.randomUUID();db.update("insert into session(id,program_id,instructor_id,starts_at,ends_at,timezone,youtube_video_id,status) values(?,?,?,?,?,?,?,'LIVE')",id,p.programId(),p.instructorId(),Timestamp.from(p.startsAt()),Timestamp.from(p.startsAt().plusSeconds(p.durationMinutes()*60L)),"Asia/Kolkata",p.youtubeVideoId());audit((UUID)auth.getPrincipal(),"SESSION_CREATED","session",id);return Map.of("id",id);
+    String timezone=db.queryForObject("select timezone from program_session_policy where program_id=?",String.class,p.programId());
+    ZoneId zone=ZoneId.of(timezone);LocalDate day=p.startsAt().atZone(zone).toLocalDate();UUID asset=assets.ensure(p.programId(),day,timezone);
+    if(p.youtubeVideoId()!=null && !p.youtubeVideoId().isBlank()) assets.attach(asset,"YOUTUBE",p.youtubeVideoId(),false,true);
+    UUID id=UUID.randomUUID();int sequence=db.queryForObject("select coalesce(max(sequence_number),0)+1 from session where program_id=? and local_date=?",Integer.class,p.programId(),java.sql.Date.valueOf(day));
+    db.update("insert into session(id,program_id,instructor_id,starts_at,ends_at,timezone,local_date,daily_asset_id,sequence_number,status) values(?,?,?,?,?,?,?,?,?,'LIVE')",id,p.programId(),p.instructorId(),Timestamp.from(p.startsAt()),Timestamp.from(p.startsAt().plusSeconds(p.durationMinutes()*60L)),timezone,java.sql.Date.valueOf(day),asset,sequence);
+    assets.setSourceIfAbsent(asset,id);audit((UUID)auth.getPrincipal(),"SESSION_CREATED","session",id);return Map.of("id",id);
   }
-  @GetMapping("/sessions") public List<Map<String,Object>> sessions() {return db.queryForList("select * from session order by starts_at desc limit 200");}
+  @GetMapping("/sessions") public List<Map<String,Object>> sessions() {return db.queryForList("select s.*,a.provider_type,a.provider_asset_id,a.asset_status,a.recording_status from session s join daily_session_asset a on a.id=s.daily_asset_id order by s.starts_at desc limit 200");}
   @GetMapping("/attendance") public List<Map<String,Object>> attendance() {return db.queryForList("select a.*,u.email from attendance a join app_user u on u.id=a.user_id order by a.created_at desc limit 200");}
   @GetMapping("/notifications") public List<Map<String,Object>> notifications() {return db.queryForList("select n.id,u.email,n.channel,n.body,n.status,n.created_at from notification n join app_user u on u.id=n.user_id order by n.created_at desc limit 200");}
   @GetMapping("/fake-whatsapp") public List<Map<String,Object>> fakeWhatsApp() {return db.queryForList("select notification_id,destination,body,status,created_at from fake_whatsapp_message order by created_at desc limit 200");}

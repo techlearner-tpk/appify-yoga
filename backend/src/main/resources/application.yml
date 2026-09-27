@@ -24,6 +24,10 @@ app:
   jwt-secret: ${JWT_SECRET:local-only-change-this-32-byte-secret-now}
   web-origin: ${WEB_ORIGIN:http://localhost:3000}
   youtube-video-id: ${YOUTUBE_VIDEO_ID:}
+  youtube:
+    client-id: ${YOUTUBE_OAUTH_CLIENT_ID:}
+    client-secret: ${YOUTUBE_OAUTH_CLIENT_SECRET:}
+    refresh-token: ${YOUTUBE_OAUTH_REFRESH_TOKEN:}
   demo-password: ${DEMO_PASSWORD:DemoPass123!}
   attendance-minimum-completion-percent: ${ATTENDANCE_MINIMUM_COMPLETION_PERCENT:70}
   fake-whatsapp-failure-rate: ${FAKE_WHATSAPP_FAILURE_RATE:0}

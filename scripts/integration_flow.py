@@ -42,15 +42,20 @@ session = call("/api/admin/sessions", "POST", {
     "youtubeVideoId": "",
 }, admin_token)
 session_id = session["id"]
-assert any(s["id"] == session_id for s in call("/api/today", token=token)["sessions"])
-assert any(s["id"] == session_id for s in call("/api/sessions", token=token))
-call("/api/attendance/start", "POST", {"sessionId": session_id, "requestId": str(uuid.uuid4())}, token)
+assert any(s["slotId"] == session_id for s in call("/api/today", token=token)["sessions"])
+assert any(s["slotId"] == session_id for s in call("/api/sessions", token=token))
+asset = next(a for a in call("/api/admin/daily-assets", token=admin_token) if a["program_id"] == yoga["id"] and a["local_date"] == datetime.now(timezone(timedelta(hours=5, minutes=30))).date().isoformat())
+if not asset["provider_asset_id"]:
+    call(f"/api/admin/daily-assets/{asset['id']}/provider", "PUT", {"providerType": "YOUTUBE", "videoUrl": "GfvVuG5mXsA", "providerOwned": False, "recordingReady": True}, admin_token)
+started = call("/api/attendance/start", "POST", {"sessionId": session_id, "requestId": str(uuid.uuid4())}, token)
+playback_token = started["playbackToken"]
+assert call(f"/api/v1/playback/{playback_token}", token=token)["playerType"] == "EMBEDDED"
 time.sleep(43)
 request_id = str(uuid.uuid4())
-heartbeat = call("/api/attendance/heartbeat", "POST", {"sessionId": session_id, "requestId": request_id}, token)
-duplicate = call("/api/attendance/heartbeat", "POST", {"sessionId": session_id, "requestId": request_id}, token)
+heartbeat = call("/api/attendance/heartbeat", "POST", {"sessionId": session_id, "requestId": request_id, "playbackToken": playback_token}, token)
+duplicate = call("/api/attendance/heartbeat", "POST", {"sessionId": session_id, "requestId": request_id, "playbackToken": playback_token}, token)
 assert heartbeat["qualified"] and duplicate["watched_seconds"] == heartbeat["watched_seconds"]
-call("/api/attendance/complete", "POST", {"sessionId": session_id, "requestId": str(uuid.uuid4())}, token)
+call("/api/attendance/complete", "POST", {"sessionId": session_id, "requestId": str(uuid.uuid4()), "playbackToken": playback_token}, token)
 for _ in range(20):
     progress = call("/api/progress", token=token)
     messages = call("/api/admin/notifications", token=admin_token)
@@ -61,4 +66,4 @@ else:
     raise AssertionError("Outbox, streak, achievement, or fake WhatsApp delivery did not complete")
 assert any(a["name"] == "First Session" for a in progress["achievements"])
 assert progress["challenges"][0]["progress_days"] == 1
-print("Primary flow passed: register → enroll → live → qualified attendance → streak → challenge → achievement → fake WhatsApp")
+print("Primary flow passed: register → enroll → protected playback → qualified attendance → streak → challenge → achievement → fake WhatsApp")

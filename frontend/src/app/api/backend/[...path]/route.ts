@@ -9,6 +9,6 @@ async function proxy(request:NextRequest,{params}:{params:Promise<{path:string[]
   const url=`${backend}/api/${path.map(encodeURIComponent).join('/')}${request.nextUrl.search}`;
   const upstream=await fetch(url,{method,headers:{Authorization:`Bearer ${token}`,'Content-Type':request.headers.get('content-type')||'application/json'},body:method==='GET'?undefined:await request.arrayBuffer(),cache:'no-store'}).catch(()=>null);
   if(!upstream) return NextResponse.json({error:'Service unavailable'},{status:503});
-  return new NextResponse(await upstream.text(),{status:upstream.status,headers:{'Content-Type':upstream.headers.get('Content-Type')||'application/json'}});
+  return new NextResponse(await upstream.text(),{status:upstream.status,headers:{'Content-Type':upstream.headers.get('Content-Type')||'application/json','Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
 }
 export const GET=proxy;export const POST=proxy;export const PUT=proxy;export const PATCH=proxy;export const DELETE=proxy;

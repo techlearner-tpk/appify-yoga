@@ -40,6 +40,7 @@ public class IdentityController {
       if(!ref.isEmpty() && !ref.get(0).equals(id)) db.update("insert into referral(id,referrer_id,invitee_id) values(?,?,?)",UUID.randomUUID(),ref.get(0),id);
     }
     db.update("insert into streak(user_id) values(?)",id);
+    db.update("insert into membership_entitlement(user_id,status,valid_until) values(?,'TRIAL',now()+interval '30 days')",id);
     return session(id,"USER");
   }
   @PostMapping("/login")

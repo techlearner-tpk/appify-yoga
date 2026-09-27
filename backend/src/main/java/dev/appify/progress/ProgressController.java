@@ -5,10 +5,11 @@ import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import dev.appify.scheduling.MemberSessionService;
 
 @RestController
 public class ProgressController {
-  private final JdbcTemplate db; public ProgressController(JdbcTemplate db) {this.db=db;}
+  private final JdbcTemplate db;private final MemberSessionService sessions; public ProgressController(JdbcTemplate db,MemberSessionService sessions) {this.db=db;this.sessions=sessions;}
   @GetMapping("/api/progress") public Map<String,Object> progress(Authentication auth) {
     Object user=auth.getPrincipal();
     var streak=db.queryForMap("select current_days,longest_days,last_qualifying_date,total_qualified_days from streak where user_id=?",user);
@@ -20,9 +21,9 @@ public class ProgressController {
   @GetMapping("/api/today") public Map<String,Object> today(Authentication auth) {
     Object user=auth.getPrincipal();
     var profile=db.queryForMap("select display_name,timezone from app_user where id=?",user);
-    var sessions=db.queryForList("select s.id,p.name as program_name,s.starts_at,s.ends_at,s.status,s.youtube_video_id,i.name as instructor from session s join program p on p.id=s.program_id join program_enrollment e on e.program_id=p.id join app_user u on u.id=e.user_id left join instructor i on i.id=s.instructor_id where u.id=? and (s.starts_at at time zone u.timezone)::date=(now() at time zone u.timezone)::date order by s.starts_at",user);
+    var todaySessions=sessions.today((java.util.UUID)user);
     var habits=db.queryForList("select h.id,h.name,exists(select 1 from habit_log l where l.habit_id=h.id and l.user_id=? and l.logged_date=(now() at time zone u.timezone)::date) as done from habit_definition h cross join app_user u where u.id=? and h.active=true",user,user);
-    return Map.of("profile",profile,"sessions",sessions,"habits",habits,"progress",progress(auth));
+    return Map.of("profile",profile,"sessions",todaySessions,"habits",habits,"progress",progress(auth));
   }
   @PostMapping("/api/habits/{id}/complete") public Map<String,Object> completeHabit(@PathVariable java.util.UUID id,Authentication auth) {
     db.update("insert into habit_log(id,user_id,habit_id,logged_date) select ?,u.id,?,(now() at time zone u.timezone)::date from app_user u where u.id=? on conflict(user_id,habit_id,logged_date) do nothing",java.util.UUID.randomUUID(),id,auth.getPrincipal()); return Map.of("completed",true);

@@ -15,8 +15,8 @@ public class ProgramController {
   @GetMapping public List<Map<String,Object>> list() { return db.queryForList("select id,name,description,difficulty,duration_minutes,program_type,image_url,active from program where active=true order by name"); }
   @PostMapping("/{id}/enroll") public Map<String,Object> enroll(@PathVariable UUID id,Authentication auth) {
     if(db.queryForObject("select count(*) from program where id=? and active=true",Integer.class,id)==0) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Program not found");
-    db.update("insert into program_enrollment(id,user_id,program_id) values(?,?,?) on conflict(user_id,program_id) do nothing",UUID.randomUUID(),auth.getPrincipal(),id);
+    db.update("insert into program_enrollment(id,user_id,program_id) values(?,?,?) on conflict(user_id,program_id) do update set active=true,updated_at=now()",UUID.randomUUID(),auth.getPrincipal(),id);
     return Map.of("enrolled",true);
   }
-  @GetMapping("/enrolled") public List<Map<String,Object>> enrolled(Authentication auth) {return db.queryForList("select p.id,p.name,p.description from program p join program_enrollment e on e.program_id=p.id where e.user_id=?",auth.getPrincipal());}
+  @GetMapping("/enrolled") public List<Map<String,Object>> enrolled(Authentication auth) {return db.queryForList("select p.id,p.name,p.description from program p join program_enrollment e on e.program_id=p.id where e.user_id=? and e.active=true",auth.getPrincipal());}
 }

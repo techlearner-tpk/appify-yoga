@@ -9,5 +9,5 @@ import org.springframework.stereotype.Component;
 public class RabbitEventQueue implements EventQueue {
   private final RabbitTemplate rabbit;
   public RabbitEventQueue(RabbitTemplate rabbit) {this.rabbit=rabbit;}
-  @Override public void publish(UUID id,String type,String payload) {rabbit.convertAndSend(MessagingConfig.EXCHANGE,"work",Map.of("eventId",id.toString(),"eventType",type,"payload",payload));}
+  @Override public void publish(UUID id,String type,String payload) {rabbit.convertAndSend(MessagingConfig.EXCHANGE,"DailyAssetDeleteRequested".equals(type)?"asset-delete":"work",Map.of("eventId",id.toString(),"eventType",type,"payload",payload));}
 }

@@ -7,9 +7,12 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import dev.appify.entitlement.SessionAccessDenied;
 
 @RestControllerAdvice
 public class ApiErrors {
+  @ExceptionHandler(SessionAccessDenied.class)
+  ResponseEntity<Map<String,String>> entitlement(SessionAccessDenied ex) {return ResponseEntity.status(ex.status()).body(Map.of("outcome",ex.outcome().name(),"error",ex.outcome().name()));}
   @ExceptionHandler(ResponseStatusException.class)
   ResponseEntity<Map<String,String>> response(ResponseStatusException ex) { return ResponseEntity.status(ex.getStatusCode()).body(Map.of("error",ex.getReason()==null?"Request failed":ex.getReason())); }
   @ExceptionHandler(MethodArgumentNotValidException.class)

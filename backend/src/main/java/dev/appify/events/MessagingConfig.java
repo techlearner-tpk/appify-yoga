@@ -11,11 +11,13 @@ import org.springframework.retry.interceptor.RetryInterceptorBuilder;
 
 @Configuration
 public class MessagingConfig {
-  public static final String EXCHANGE="wellness.events", QUEUE="wellness.events.worker", DLQ="wellness.events.dead";
+  public static final String EXCHANGE="wellness.events", QUEUE="wellness.events.worker", ASSET_QUEUE="wellness.assets.delete", DLQ="wellness.events.dead";
   @Bean DirectExchange exchange() {return new DirectExchange(EXCHANGE,true,false);}
   @Bean Queue workerQueue() {return QueueBuilder.durable(QUEUE).withArgument("x-dead-letter-exchange",EXCHANGE).withArgument("x-dead-letter-routing-key","dead").build();}
+  @Bean Queue assetQueue() {return QueueBuilder.durable(ASSET_QUEUE).withArgument("x-dead-letter-exchange",EXCHANGE).withArgument("x-dead-letter-routing-key","dead").build();}
   @Bean Queue deadQueue() {return QueueBuilder.durable(DLQ).build();}
   @Bean Binding workerBinding() {return BindingBuilder.bind(workerQueue()).to(exchange()).with("work");}
+  @Bean Binding assetBinding() {return BindingBuilder.bind(assetQueue()).to(exchange()).with("asset-delete");}
   @Bean Binding deadBinding() {return BindingBuilder.bind(deadQueue()).to(exchange()).with("dead");}
   @Bean Jackson2JsonMessageConverter messageConverter() {return new Jackson2JsonMessageConverter();}
   @Bean SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory,Jackson2JsonMessageConverter converter) {

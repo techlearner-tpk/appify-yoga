@@ -28,6 +28,7 @@ public class RateLimitInterceptor implements HandlerInterceptor,WebMvcConfigurer
     if(path.equals("/api/auth/login")) {limit=1000;seconds=300;}
     else if(path.equals("/api/auth/register")) {limit=300;seconds=300;}
     else if(path.startsWith("/api/attendance/")) {limit=180;seconds=60;}
+    else if(path.startsWith("/api/v1/session-slots/") || path.startsWith("/api/v1/playback/") || path.startsWith("/api/v1/join-links/")) {limit=60;seconds=60;}
     else if(path.startsWith("/api/admin/")) {limit=60;seconds=60;}
     else if(path.contains("referral")) {limit=10;seconds=300;}
     else return true;

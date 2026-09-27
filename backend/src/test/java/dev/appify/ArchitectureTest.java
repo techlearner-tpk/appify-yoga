@@ -13,4 +13,9 @@ class ArchitectureTest {
     var classes=new ClassFileImporter().importPackages("dev.appify");
     noClasses().should().resideInAPackage("dev.appify.payment..").check(classes);
   }
+  @Test void businessAccessAndCleanupDependOnProviderContract() {
+    var classes=new ClassFileImporter().importPackages("dev.appify");
+    noClasses().that().resideInAnyPackage("dev.appify.entitlement..","dev.appify.attendance..","dev.appify.scheduling..","dev.appify.media.AssetDeletionConsumer")
+      .should().dependOnClassesThat().haveSimpleName("YouTubeVideoProvider").check(classes);
+  }
 }

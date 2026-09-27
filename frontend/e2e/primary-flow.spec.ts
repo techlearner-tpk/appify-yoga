@@ -1,13 +1,23 @@
 import {test,expect} from '@playwright/test';
-test('member can sign in, see classes, and open a live class',async({page})=>{
+test('member can sign in, see neutral class choices, and open a class',async({page})=>{
+  const email=`member-browser-${Date.now()}@example.test`;
+  await page.goto('/register');
+  await page.getByLabel('Your name').fill('New Browser Member');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill('DemoPass123!');
+  await page.getByRole('button',{name:'Create account →'}).click();
+  await page.locator('.programCard').filter({hasText:'Yoga Everyday'}).getByRole('button',{name:'Join program →'}).click();
+  await page.getByRole('button',{name:'Sign out ↗'}).click();
   await page.goto('/login');
-  await page.getByLabel('Email').fill('member@example.test');
+  await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill('DemoPass123!');
   await page.getByRole('button',{name:'Sign in →'}).click();
   await expect(page.getByRole('heading',{name:/Good day/})).toBeVisible();
   await expect(page.getByRole('link',{name:'Instructor view'})).toHaveCount(0);
   await expect(page.getByRole('link',{name:'Admin portal'})).toHaveCount(0);
   await expect(page.getByText('Yoga Everyday').first()).toBeVisible();
+  expect(await page.locator('.classRow').count()).toBeGreaterThanOrEqual(6);
+  await expect(page.getByText(/YouTube|Replay|Live class/i)).toHaveCount(0);
   await page.getByRole('link',{name:'View next class →'}).click();
   await expect(page.getByRole('heading',{name:'Yoga Everyday',level:1})).toBeVisible();
   await page.goto('/instructor');
@@ -23,6 +33,10 @@ test('admin publishes a library image through the web app',async({page})=>{
   await expect(page.getByRole('link',{name:'Instructor view'})).toBeVisible();
   await expect(page.getByRole('link',{name:'Admin portal'})).toBeVisible();
   await page.goto('/admin');
+  await expect(page.getByRole('heading',{name:'Class times'})).toBeVisible();
+  await expect(page.getByLabel('Slot 1 time')).toHaveValue('06:30');
+  await expect(page.getByRole('heading',{name:'Assets and cleanup'})).toBeVisible();
+  await expect(page.locator('.assetAdminRow').first()).toBeVisible();
   const title=`Browser article ${Date.now()}`;
   await page.getByLabel('Title').fill(title);
   await page.getByLabel('Body').fill('A small practice for today.');
@@ -80,16 +94,42 @@ test('admin assigns the supplied YouTube Live link to a session',async({page})=>
   const sessionId=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];
   expect(sessionId).toBeTruthy();
   await page.getByRole('button',{name:'Sign out ↗'}).click();
-  await page.goto('/login');
-  await page.getByLabel('Email').fill('member@example.test');
+  await page.goto('/register');
+  await page.getByLabel('Your name').fill('Playback Browser Member');
+  await page.getByLabel('Email').fill(`playback-${Date.now()}@example.test`);
   await page.getByLabel('Password').fill('DemoPass123!');
-  await page.getByRole('button',{name:'Sign in →'}).click();
-  await expect(page.getByRole('heading',{name:/Good day/})).toBeVisible();
+  await page.getByRole('button',{name:'Create account →'}).click();
+  await page.locator('.programCard').filter({hasText:'Yoga Everyday'}).getByRole('button',{name:'Join program →'}).click();
   await page.goto(`/live/${sessionId}`);
-  const attendanceResponse=page.waitForResponse(response=>response.url().includes('/api/backend/attendance/start'));
-  await page.getByRole('button',{name:'Join live & track attendance →'}).click();
+  const attendanceResponse=page.waitForResponse(response=>response.url().includes(`/api/backend/v1/session-slots/${sessionId}/join`));
+  await page.getByRole('button',{name:'Enter class →'}).click();
   const started=await attendanceResponse;
   expect(started.status(),await started.text()).toBe(200);
-  await expect(page.locator('iframe[title="YouTube Live class"]')).toBeVisible();
-  await expect(page.locator('iframe[title="YouTube Live class"]')).toHaveAttribute('src',/youtube-nocookie.com\/embed\/GfvVuG5mXsA/);
+  await expect(page.locator('iframe[title="Class player"]')).toBeVisible();
+  await expect(page.getByText(/YouTube|Replay|Live class/i)).toHaveCount(0);
+});
+
+test('member reminder link survives sign in',async({page})=>{
+  const email=`reminder-${Date.now()}@example.test`;
+  await page.goto('/register');
+  await page.getByLabel('Your name').fill('Reminder Member');
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill('DemoPass123!');
+  await page.getByRole('button',{name:'Create account →'}).click();
+  await page.locator('.programCard').filter({hasText:'Yoga Everyday'}).getByRole('button',{name:'Join program →'}).click();
+  const link=await page.evaluate(async()=>{
+    const slots=await fetch('/api/backend/sessions').then(r=>r.json());
+    const slot=slots.find((s:{joinAvailability:string})=>['ALLOW','SESSION_NOT_OPEN','ASSET_NOT_READY'].includes(s.joinAvailability));
+    if(!slot)throw new Error('No eligible future slot');
+    const response=await fetch(`/api/backend/v1/join-links/${slot.slotId}`,{method:'POST'});
+    if(!response.ok)throw new Error(await response.text());
+    return {token:(await response.json()).token,slotId:slot.slotId};
+  });
+  await page.getByRole('button',{name:'Sign out ↗'}).click();
+  await page.goto(`/j/${link.token}`);
+  await expect(page).toHaveURL(/\/login\?next=/);
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password').fill('DemoPass123!');
+  await page.getByRole('button',{name:'Sign in →'}).click();
+  await expect(page).toHaveURL(new RegExp(`/live/${link.slotId}$`));
 });

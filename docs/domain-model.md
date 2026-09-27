@@ -20,3 +20,5 @@ erDiagram
 ```
 
 An attendance row is unique per user and session. A heartbeat request ID is globally unique. A qualified day is unique per user and local date, so two classes on one day count once toward a streak. Achievements and enrollments also have unique user pairs. Event IDs are unique per consumer.
+
+`program_session_policy` stores timezone, source slot, access window, and cleanup policy. `daily_session_asset` is unique per program and local date; all six slots reference one asset. `membership_entitlement` and active enrollment participate in authorization. `user_daily_participation` is unique per user, program, and local date; selecting a slot changes only `selected_session_slot_id`, while the first accepted join fills `joined_session_slot_id` under a row lock. `playback_session` and `session_join_link` contain only token hashes, scope, and expiry. Provider identifiers reside in admin asset data, not normal member session resources.

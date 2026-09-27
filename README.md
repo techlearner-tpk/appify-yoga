@@ -9,7 +9,7 @@ Start Docker Desktop (or a compatible Docker Engine), then run:
 ```sh
 git clone https://github.com/techlearner-tpk/appify-yoga.git
 cd appify-yoga
-cp .env.example .env  # optional: set passwords and YOUTUBE_VIDEO_ID before startup
+cp .env.example .env  # set local passwords and optional video credentials
 docker compose up --build -d
 docker compose ps
 ```
@@ -29,7 +29,7 @@ The first build downloads images and Maven/npm packages. After the services beco
 
 Other demo accounts: `instructor@example.test` and `admin@example.test`, both using `DemoPass123!`. Change all credentials for any shared environment. Copy `.env.example` to `.env` to configure passwords, a YouTube video ID, or the attendance threshold. `.env` is ignored by Git.
 
-The demo user is already enrolled in Yoga Everyday. The API creates a short live demo session on startup. Regular Yoga slots are materialized 14 days ahead by the scheduler. A real YouTube Live ID can be set through `YOUTUBE_VIDEO_ID` for newly created demo and scheduled sessions; the platform does not host video. To test a stream immediately, sign in as admin and use **Create a live session** with a YouTube Live URL. The form returns a member class link to copy and open while signed in as an enrolled member. Fake WhatsApp messages appear in the admin portal after reminders and qualified attendance. A fresh demo session is created each day.
+The demo user is already enrolled in Yoga Everyday. The API creates a short demo class on startup. The scheduler materializes six Yoga times per day, 14 days ahead. Set `YOUTUBE_VIDEO_ID` for local demo playback, or attach a daily video in **Admin portal → Assets and cleanup**. To test immediately, create a class from the admin portal, then open its app link as an enrolled member. The member sees a normal class and can join only one class per program and local day. See [daily sessions](docs/daily-sessions.md) for schedule, playback, and cleanup operations.
 
 ### Instructor onboarding
 
@@ -51,7 +51,7 @@ For Windows PowerShell, use `docker compose up --build -d`, `docker compose down
 
 ## Account details needed later
 
-- **YouTube Live:** public or unlisted embeddable live video ID or URL, and confirmation that embedding is permitted. No YouTube API credential is needed for manual configuration.
+- **YouTube Live:** an embeddable video ID or URL for manual playback. For automatic archive readiness and deletion, provide an OAuth client ID, client secret, refresh token authorized for the owning channel, and confirmation that the app may delete owned videos. Do not send secrets in chat or commit them.
 - **WhatsApp:** no account is needed for local simulation. For real delivery later, provide a Meta Business portfolio, WhatsApp Business Account ID, phone number ID, approved display number, access token or system user setup, webhook verification secret, and approved message templates. Keep all secrets outside Git.
 - **Email:** no account is needed locally; MailHog captures mail. A production email provider and verified sending domain will be needed later.
 - **Cloud:** no account is needed for this phase.
