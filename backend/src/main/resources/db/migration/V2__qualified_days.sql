@@ -1,0 +1,1 @@
+create table qualified_day (user_id uuid not null references app_user(id), qualified_date date not null, first_attendance_id uuid not null references attendance(id), created_at timestamptz not null default now(), primary key(user_id,qualified_date));

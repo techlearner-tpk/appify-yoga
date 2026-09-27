@@ -1,0 +1,7 @@
+.env
+**/node_modules/
+**/.next/
+**/target/
+**/coverage/
+**/test-results/
+.DS_Store

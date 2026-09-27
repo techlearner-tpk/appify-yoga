@@ -1,0 +1,1 @@
+create table fake_whatsapp_message (notification_id uuid primary key references notification(id), destination text not null, body text not null, status text not null, created_at timestamptz not null default now());

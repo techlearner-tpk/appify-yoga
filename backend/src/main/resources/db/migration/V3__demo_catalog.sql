@@ -1,0 +1,24 @@
+insert into instructor(id,name,bio) values ('10000000-0000-0000-0000-000000000001','Asha Rao','Yoga and breathing instructor') on conflict do nothing;
+insert into program(id,name,description,difficulty,duration_minutes,program_type,instructor_id) values
+('20000000-0000-0000-0000-000000000001','Yoga Everyday','Start each day with guided movement.','BEGINNER',60,'YOGA','10000000-0000-0000-0000-000000000001'),
+('20000000-0000-0000-0000-000000000002','Strength Everyday','Build sustainable strength.','INTERMEDIATE',45,'STRENGTH','10000000-0000-0000-0000-000000000001'),
+('20000000-0000-0000-0000-000000000003','Breathing','Slow down and reset.','BEGINNER',20,'BREATHING','10000000-0000-0000-0000-000000000001') on conflict do nothing;
+insert into class_series(id,program_id,instructor_id,local_time,timezone,duration_minutes) values
+('30000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','06:30','Asia/Kolkata',60),
+('30000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','07:30','Asia/Kolkata',60),
+('30000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','08:30','Asia/Kolkata',60),
+('30000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','17:00','Asia/Kolkata',60),
+('30000000-0000-0000-0000-000000000005','20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','18:00','Asia/Kolkata',60),
+('30000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','19:00','Asia/Kolkata',60) on conflict do nothing;
+insert into challenge(id,name,duration_days,reward) values
+('40000000-0000-0000-0000-000000000001','7 Day Yoga',7,'7 day badge'),
+('40000000-0000-0000-0000-000000000002','14 Day Yoga',14,'14 day badge'),
+('40000000-0000-0000-0000-000000000003','21 Day Consistency',21,'21 day badge') on conflict do nothing;
+insert into achievement(id,code,name,threshold) values
+('50000000-0000-0000-0000-000000000001','FIRST_SESSION','First Session',1),
+('50000000-0000-0000-0000-000000000002','THREE_DAY','3 Day Streak',3),
+('50000000-0000-0000-0000-000000000003','SEVEN_DAY','7 Day Streak',7),
+('50000000-0000-0000-0000-000000000004','TWENTY_ONE_DAY','21 Day Streak',21),
+('50000000-0000-0000-0000-000000000005','THIRTY_DAY','30 Day Streak',30),
+('50000000-0000-0000-0000-000000000006','HUNDRED_SESSIONS','100 Sessions',100) on conflict do nothing;
+insert into habit_definition(id,name) values ('60000000-0000-0000-0000-000000000001','Drink water'),('60000000-0000-0000-0000-000000000002','Practice mindful breathing') on conflict do nothing;

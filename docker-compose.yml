@@ -1,0 +1,121 @@
+name: appify-yoga
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_DB: wellness
+      POSTGRES_USER: wellness
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-postgres-change-me}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U wellness -d wellness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7.4.2-alpine
+    command: [redis-server, --appendonly, 'yes']
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      retries: 20
+  rabbitmq:
+    image: rabbitmq:3.13.7-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: wellness
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-local-rabbit-change-me}
+    ports: ['127.0.0.1:15672:15672']
+    volumes: [rabbit_data:/var/lib/rabbitmq]
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: wellness
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-local-minio-change-me}
+    ports: ['127.0.0.1:9000:9000', '127.0.0.1:9001:9001']
+    volumes: [minio_data:/data]
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports: ['127.0.0.1:8025:8025']
+  backend-api:
+    build: ./backend
+    environment: &backend_environment
+      DB_URL: jdbc:postgresql://postgres:5432/wellness
+      DB_USER: wellness
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-local-postgres-change-me}
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: wellness
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-local-rabbit-change-me}
+      MAIL_HOST: mailhog
+      JWT_SECRET: ${JWT_SECRET:-local-only-change-this-32-byte-secret-now}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-DemoPass123!}
+      YOUTUBE_VIDEO_ID: ${YOUTUBE_VIDEO_ID:-}
+      ATTENDANCE_MINIMUM_COMPLETION_PERCENT: ${ATTENDANCE_MINIMUM_COMPLETION_PERCENT:-70}
+      FAKE_WHATSAPP_FAILURE_RATE: ${FAKE_WHATSAPP_FAILURE_RATE:-0}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_USER: wellness
+      MINIO_PASSWORD: ${MINIO_PASSWORD:-local-minio-change-me}
+      WEB_ORIGIN: http://localhost:3000
+      APP_SEED_DEMO: 'true'
+      APP_MODE: api
+    depends_on:
+      postgres: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    ports: ['127.0.0.1:8080:8080']
+    healthcheck:
+      test: [CMD, wget, -q, -O, '-', 'http://localhost:8080/actuator/health/readiness']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  background-worker:
+    build: ./backend
+    environment:
+      <<: *backend_environment
+      APP_MODE: worker
+      SPRING_PROFILES_ACTIVE: worker
+    depends_on:
+      backend-api: {condition: service_healthy}
+  scheduler:
+    build: ./backend
+    environment:
+      <<: *backend_environment
+      APP_MODE: scheduler
+    depends_on:
+      backend-api: {condition: service_healthy}
+  frontend:
+    build: ./frontend
+    environment:
+      BACKEND_URL: http://backend-api:8080
+    ports: ['127.0.0.1:3000:3000']
+    depends_on:
+      backend-api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, -O, '-', 'http://localhost:3000/']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes: ['./ops/prometheus.yml:/etc/prometheus/prometheus.yml:ro']
+    ports: ['127.0.0.1:9090:9090']
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-local-grafana-change-me}
+    volumes: ['./ops/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro',grafana_data:/var/lib/grafana]
+    ports: ['127.0.0.1:3001:3000']
+volumes:
+  postgres_data:
+  redis_data:
+  rabbit_data:
+  minio_data:
+  grafana_data:

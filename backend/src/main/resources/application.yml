@@ -1,0 +1,40 @@
+spring:
+  application.name: appify-wellness
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/wellness}
+    username: ${DB_USER:wellness}
+    password: ${DB_PASSWORD:wellness}
+  jpa:
+    hibernate.ddl-auto: validate
+    open-in-view: false
+  flyway.enabled: true
+  data.redis.host: ${REDIS_HOST:localhost}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    username: ${RABBITMQ_USER:wellness}
+    password: ${RABBITMQ_PASSWORD:wellness}
+  mail.host: ${MAIL_HOST:localhost}
+  mail.port: 1025
+  lifecycle.timeout-per-shutdown-phase: 20s
+server:
+  port: 8080
+  shutdown: graceful
+app:
+  mode: ${APP_MODE:api}
+  jwt-secret: ${JWT_SECRET:local-only-change-this-32-byte-secret-now}
+  web-origin: ${WEB_ORIGIN:http://localhost:3000}
+  youtube-video-id: ${YOUTUBE_VIDEO_ID:}
+  demo-password: ${DEMO_PASSWORD:DemoPass123!}
+  attendance-minimum-completion-percent: ${ATTENDANCE_MINIMUM_COMPLETION_PERCENT:70}
+  fake-whatsapp-failure-rate: ${FAKE_WHATSAPP_FAILURE_RATE:0}
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    user: ${MINIO_USER:wellness}
+    password: ${MINIO_PASSWORD:local-minio-change-me}
+    bucket: ${MINIO_BUCKET:wellness-content}
+management:
+  endpoints.web.exposure.include: health,info,prometheus
+  endpoint.health.probes.enabled: true
+  health.rabbit.enabled: false
+  health.redis.enabled: false
+springdoc.swagger-ui.path: /swagger-ui
