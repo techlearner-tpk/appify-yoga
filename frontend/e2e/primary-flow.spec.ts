@@ -130,6 +130,10 @@ test('admin assigns the supplied YouTube Live link to a session',async({page})=>
   await page.getByLabel('Email').fill(`playback-${Date.now()}@example.test`);
   await page.getByLabel('Password').fill('DemoPass123!');
   await page.getByRole('button',{name:'Create account →'}).click();
+  await expect(page.getByRole('heading',{name:'Find your rhythm.',level:1})).toBeVisible();
+  await page.goto(`/live/${sessionId}`);
+  await expect(page.locator('.errorCard')).toHaveText('Join this program to attend.');
+  await page.goto('/programs');
   await page.locator('.programCard').filter({hasText:'Yoga Everyday'}).getByRole('button',{name:'Join program →'}).click();
   await page.goto(`/live/${sessionId}`);
   const attendanceResponse=page.waitForResponse(response=>response.url().includes(`/api/backend/v1/session-slots/${sessionId}/join`));

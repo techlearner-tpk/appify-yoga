@@ -18,6 +18,8 @@ The page shows the embedded player inside the app. A later slot starts at its sc
 
 Use **Create a live session** for an immediate local test. This admin action is a manual class for today; it attaches the supplied link to today's asset and assumes it is ready. It is separate from the recurring six time schedule.
 
+Before opening the generated class link, sign in as the member, open **Programs**, and enroll in the exact program selected by the admin. The demo member is initially enrolled only in Yoga Everyday; creating a new test program does not enroll existing members. An unenrolled member opening a valid class link sees **Join this program to attend**. A class that does not exist still returns **Session not found**.
+
 ## Provider and credentials
 
 The first provider adapter is YouTube. Manual embedding needs an embeddable public or unlisted video URL or ID. Automatic readiness checks and deletion require the owning channel's OAuth client ID, client secret, and refresh token in `YOUTUBE_OAUTH_CLIENT_ID`, `YOUTUBE_OAUTH_CLIENT_SECRET`, and `YOUTUBE_OAUTH_REFRESH_TOKEN`. The refresh token must be authorized for the channel and a video management scope such as `youtube.force-ssl`; store it only in the ignored `.env` or a secret manager. No API key is used for channel deletion. The live test URL supplied for this project is `https://www.youtube.com/live/GfvVuG5mXsA` and must be treated as **unowned** unless it is your channel's video.

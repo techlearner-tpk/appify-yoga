@@ -1,6 +1,7 @@
 package dev.appify.scheduling;
 
 import dev.appify.entitlement.SessionEntitlementService;
+import dev.appify.entitlement.SessionAccessDenied;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -25,7 +26,13 @@ public class MemberSessionService {
   public List<Map<String,Object>> upcoming(UUID user) {return present(db.queryForList(BASE+" and s.starts_at>now()-interval '1 day' and s.starts_at<now()+interval '14 days' order by s.starts_at limit 200",user),user);}
   public Map<String,Object> one(UUID user,UUID slot) {
     var rows=db.queryForList(BASE+" and s.id=?",user,slot);
-    if(rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Session not found");
+    if(rows.isEmpty()) {
+      var outcome=entitlements.evaluate(user,slot,Instant.now()).outcome();
+      if(outcome==SessionEntitlementService.Outcome.PROGRAM_NOT_ENROLLED
+          || outcome==SessionEntitlementService.Outcome.MEMBERSHIP_REQUIRED
+          || outcome==SessionEntitlementService.Outcome.ACCOUNT_DISABLED) throw new SessionAccessDenied(outcome);
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Session not found");
+    }
     return present(rows,user).get(0);
   }
   private static final String BASE="""

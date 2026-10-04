@@ -2,6 +2,8 @@
 
 Run `docker compose up --build`. Use `docker compose ps` and `docker compose logs -f backend-api background-worker scheduler` to inspect startup. Database migrations run automatically before the API starts. The scheduler creates 14 days of sessions after startup.
 
+Wait for `backend-api` and `frontend` to become healthy before signing in. During an API restart, the web login can temporarily show **Service unavailable**. API readiness has a five-minute startup grace period for slower local Docker environments, and RabbitMQ diagnostics have a 30-second timeout. These settings let dependencies wait for readiness; they do not make login available while the API is still starting. If the message persists, inspect `docker compose logs --tail=50 backend-api`.
+
 `make stop` retains PostgreSQL, Redis, RabbitMQ, MinIO, and Grafana volumes. `make clean` deletes them. To reset all local data, use `docker compose down -v` and start again. Environment overrides are in `.env.example`; copy it to `.env` before startup and never commit real passwords or tokens.
 
 For manual API calls, log in at `POST /api/auth/login` with a demo account and send the returned short lived access token as `Authorization: Bearer ...`. The web app keeps access and refresh tokens in HTTP only cookies on the local Next.js server. `POST /api/auth/refresh` rotates a refresh token.
