@@ -24,6 +24,26 @@ test('member can sign in, see neutral class choices, and open a class',async({pa
   await expect(page.getByText('Instructor access is granted by an admin.')).toBeVisible();
 });
 
+test('admin creates a program and resets the form after saving',async({page})=>{
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('admin@example.test');
+  await page.getByLabel('Password').fill('DemoPass123!');
+  await page.getByRole('button',{name:'Sign in →'}).click();
+  await page.getByRole('link',{name:'Admin portal'}).click();
+  const form=page.locator('form').filter({has:page.getByRole('heading',{name:'Create a program'})});
+  const name=`Live E2E Test ${Date.now()}`;
+  await form.getByLabel('Name',{exact:true}).fill(name);
+  await form.getByLabel('Description').fill('Immediate local video testing.');
+  await form.getByLabel('Duration (minutes)').fill('5');
+  await form.getByRole('button',{name:'Create program'}).click();
+  await expect(page.getByText(/Program created:/)).toBeVisible();
+  await expect(form.getByLabel('Name',{exact:true})).toHaveValue('');
+  await expect(form.getByLabel('Description')).toHaveValue('');
+  await expect(page.locator('.errorCard')).toHaveCount(0);
+  await page.goto('/programs');
+  await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
+});
+
 test('admin publishes a library image through the web app',async({page})=>{
   await page.goto('/login');
   await page.getByLabel('Email').fill('admin@example.test');
@@ -34,15 +54,22 @@ test('admin publishes a library image through the web app',async({page})=>{
   await expect(page.getByRole('link',{name:'Admin portal'})).toBeVisible();
   await page.goto('/admin');
   await expect(page.getByRole('heading',{name:'Class times'})).toBeVisible();
-  await expect(page.getByLabel('Slot 1 time')).toHaveValue('06:30');
+  const schedule=page.locator('section').filter({has:page.getByRole('heading',{name:'Class times'})});
+  await schedule.getByLabel('Program').selectOption({label:'Yoga Everyday'});
+  await expect(page.getByLabel('Slot 1 time')).toBeVisible();
   await expect(page.getByRole('heading',{name:'Assets and cleanup'})).toBeVisible();
   await expect(page.locator('.assetAdminRow').first()).toBeVisible();
   const title=`Browser article ${Date.now()}`;
   await page.getByLabel('Title').fill(title);
   await page.getByLabel('Body').fill('A small practice for today.');
   await page.getByLabel('Image (optional)').setInputFiles({name:'one.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==','base64')});
+  const publishing=page.waitForResponse(response=>response.url().includes('/api/backend/admin/content')&&response.request().method()==='POST');
   await page.getByRole('button',{name:'Publish article'}).click();
+  const published=await publishing;
+  expect(published.status(),await published.text()).toBe(200);
   await expect(page.getByText(/Published:/)).toBeVisible();
+  await expect(page.getByLabel('Title')).toHaveValue('');
+  await expect(page.locator('.errorCard')).toHaveCount(0);
   await page.goto('/library');
   await expect(page.getByRole('heading',{name:title})).toBeVisible();
 });
@@ -66,6 +93,8 @@ test('admin onboards a registered member as an instructor',async({page})=>{
   await page.getByLabel('Registered email').fill(email);
   await page.getByRole('button',{name:'Grant instructor access'}).click();
   await expect(page.getByText(`${email} can now sign in as an instructor.`)).toBeVisible();
+  await expect(page.getByLabel('Registered email')).toHaveValue('');
+  await expect(page.locator('.errorCard')).toHaveCount(0);
   await page.getByRole('button',{name:'Sign out ↗'}).click();
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
@@ -91,6 +120,8 @@ test('admin assigns the supplied YouTube Live link to a session',async({page})=>
   await form.getByRole('button',{name:'Start test session now'}).click();
   const created=page.getByText(/Member class link:/);
   await expect(created).toBeVisible();
+  await expect(form.getByLabel('YouTube Live ID or URL')).toHaveValue('');
+  await expect(page.locator('.errorCard')).toHaveCount(0);
   const sessionId=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];
   expect(sessionId).toBeTruthy();
   await page.getByRole('button',{name:'Sign out ↗'}).click();

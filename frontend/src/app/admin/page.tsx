@@ -20,22 +20,22 @@ export default function Admin(){
  const [onboarded,setOnboarded]=useState(''),[createdSession,setCreatedSession]=useState('');
  useEffect(()=>{Promise.all([api<Stats>('/admin/dashboard'),api<Notification[]>('/admin/notifications'),api<Program[]>('/admin/programs'),api<Instructor[]>('/admin/instructors')]).then(([s,n,p,i])=>{setStats(s);setNotes(n);setPrograms(p);setInstructors(i)}).catch(e=>setError(e.message))},[]);
 
- async function create(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const form=new FormData(e.currentTarget);try{
+ async function create(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const formElement=e.currentTarget,form=new FormData(formElement);try{
   const result=await api<{id:string}>('/admin/programs',{method:'POST',body:JSON.stringify({name:form.get('name'),description:form.get('description'),difficulty:form.get('difficulty'),durationMinutes:Number(form.get('duration')),programType:form.get('type')})});
-  setCreated(`Program created: ${result.id}`);setPrograms(await api<Program[]>('/admin/programs'));e.currentTarget.reset();
+  setCreated(`Program created: ${result.id}`);setPrograms(await api<Program[]>('/admin/programs'));formElement.reset();
  }catch(e){setError((e as Error).message)}}
- async function onboard(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const form=new FormData(e.currentTarget);try{
+ async function onboard(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const formElement=e.currentTarget,form=new FormData(formElement);try{
   const result=await api<{email:string}>('/admin/instructors',{method:'POST',body:JSON.stringify({email:form.get('email'),bio:form.get('bio')})});
-  setOnboarded(`${result.email} can now sign in as an instructor.`);setInstructors(await api<Instructor[]>('/admin/instructors'));e.currentTarget.reset();
+  setOnboarded(`${result.email} can now sign in as an instructor.`);setInstructors(await api<Instructor[]>('/admin/instructors'));formElement.reset();
  }catch(e){setError((e as Error).message)}}
- async function createLive(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const form=new FormData(e.currentTarget),raw=String(form.get('youtubeUrl')||'').trim();
+ async function createLive(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const formElement=e.currentTarget,form=new FormData(formElement),raw=String(form.get('youtubeUrl')||'').trim();
   const video=raw?youtubeId(raw):null;if(raw&&!video){setError('Enter a valid YouTube video ID or URL.');return;}
   try{const result=await api<{id:string}>('/admin/sessions',{method:'POST',body:JSON.stringify({programId:form.get('programId'),instructorId:form.get('instructorId')||null,startsAt:new Date().toISOString(),durationMinutes:Number(form.get('durationMinutes')),youtubeVideoId:video})});
-   setCreatedSession(`${window.location.origin}/live/${result.id}`);e.currentTarget.reset();
+   setCreatedSession(`${window.location.origin}/live/${result.id}`);formElement.reset();
   }catch(e){setError((e as Error).message)}
  }
- async function publish(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const form=new FormData(e.currentTarget);try{
-  const response=await fetch('/api/backend/admin/content',{method:'POST',body:form});const data=await response.json();if(!response.ok)throw new Error(data.error||'Unable to publish');setPublished(`Published: ${data.id}`);e.currentTarget.reset();
+ async function publish(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const formElement=e.currentTarget,form=new FormData(formElement);try{
+  const response=await fetch('/api/backend/admin/content',{method:'POST',body:form});const data=await response.json();if(!response.ok)throw new Error(data.error||'Unable to publish');setPublished(`Published: ${data.id}`);formElement.reset();
  }catch(e){setError((e as Error).message)}}
 
  return <Shell title="Studio overview." subtitle="A clear view of your community and operations.">{error&&<ErrorNotice message={error}/>} {!stats&&!error?<Loading/>:stats&&<>
