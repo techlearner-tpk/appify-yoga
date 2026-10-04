@@ -7,6 +7,7 @@ test('member can sign in, see neutral class choices, and open a class',async({pa
   await page.getByLabel('Password').fill('DemoPass123!');
   await page.getByRole('button',{name:'Create account →'}).click();
   await page.locator('.programCard').filter({hasText:'Yoga Everyday'}).getByRole('button',{name:'Join program →'}).click();
+  await expect(page.locator('.programCard').filter({hasText:'Yoga Everyday'}).getByRole('button',{name:'Enrolled ✓'})).toBeDisabled();
   await page.getByRole('button',{name:'Sign out ↗'}).click();
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
@@ -183,6 +184,7 @@ test('member reminder link survives sign in',async({page})=>{
   await page.getByLabel('Password').fill('DemoPass123!');
   await page.getByRole('button',{name:'Create account →'}).click();
   await page.locator('.programCard').filter({hasText:'Yoga Everyday'}).getByRole('button',{name:'Join program →'}).click();
+  await expect(page.locator('.programCard').filter({hasText:'Yoga Everyday'}).getByRole('button',{name:'Enrolled ✓'})).toBeDisabled();
   const link=await page.evaluate(async()=>{
     const slots=await fetch('/api/backend/sessions').then(r=>r.json());
     const slot=slots.find((s:{joinAvailability:string})=>['ALLOW','SESSION_NOT_OPEN','ASSET_NOT_READY'].includes(s.joinAvailability));
