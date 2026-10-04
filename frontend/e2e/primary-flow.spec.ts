@@ -144,7 +144,9 @@ test('admin assigns a YouTube Live link and identifies the embedded player',asyn
   await page.goto(`/live/${sessionId}`);
   await expect(page.locator('.errorCard')).toHaveText('Join this program to attend.');
   await page.goto('/programs');
-  await page.locator('.programCard').filter({hasText:programName}).getByRole('button',{name:'Join program →'}).click();
+  const programCard=page.locator('.programCard').filter({hasText:programName});
+  await programCard.getByRole('button',{name:'Join program →'}).click();
+  await expect(programCard.getByRole('button',{name:'Enrolled ✓'})).toBeDisabled();
   await page.goto(`/live/${sessionId}`);
   const attendanceResponse=page.waitForResponse(response=>response.url().includes(`/api/backend/v1/session-slots/${sessionId}/join`));
   const embedRequest=page.waitForRequest(request=>request.url().startsWith('https://www.youtube-nocookie.com/embed/'));
