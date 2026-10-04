@@ -106,17 +106,26 @@ test('admin onboards a registered member as an instructor',async({page})=>{
   await expect(page.getByText('No classes are assigned yet.')).toBeVisible();
 });
 
-test('admin assigns the supplied YouTube Live link to a session',async({page})=>{
+test('admin assigns a YouTube Live link and identifies the embedded player',async({page})=>{
   await page.goto('/login');
   await page.getByLabel('Email').fill('admin@example.test');
   await page.getByLabel('Password').fill('DemoPass123!');
   await page.getByRole('button',{name:'Sign in →'}).click();
   await expect(page.getByRole('link',{name:'Admin portal'})).toBeVisible();
   await page.getByRole('link',{name:'Admin portal'}).click();
+  const programName=`Local Playback Test ${Date.now()}`;
+  const catalog=page.locator('form').filter({has:page.getByRole('heading',{name:'Create a program'})});
+  await catalog.getByLabel('Name',{exact:true}).fill(programName);
+  await catalog.getByLabel('Description').fill('Isolated YouTube embedding verification.');
+  await catalog.getByLabel('Duration (minutes)').fill('15');
+  await catalog.getByRole('button',{name:'Create program'}).click();
+  await expect(page.getByText(/Program created:/)).toBeVisible();
+  await expect(catalog.getByLabel('Name',{exact:true})).toHaveValue('');
   const form=page.locator('form').filter({has:page.getByRole('heading',{name:'Create a live session'})});
-  await form.getByLabel('Program').selectOption({label:'Yoga Everyday'});
+  await form.getByLabel('Program').selectOption({label:programName});
   await form.getByLabel('Instructor').selectOption({label:'Asha Rao (instructor@example.test)'});
-  await form.getByLabel('YouTube Live ID or URL').fill('https://www.youtube.com/live/GfvVuG5mXsA?si=MLqykU9yenqZaasW');
+  await form.getByLabel('YouTube Live ID or URL').fill('https://www.youtube.com/live/2afajz1hd-E?si=IHDab4g6ie0vsPe3');
+  await form.getByLabel('Duration (minutes)').fill('15');
   await form.getByRole('button',{name:'Start test session now'}).click();
   const created=page.getByText(/Member class link:/);
   await expect(created).toBeVisible();
@@ -124,6 +133,7 @@ test('admin assigns the supplied YouTube Live link to a session',async({page})=>
   await expect(page.locator('.errorCard')).toHaveCount(0);
   const sessionId=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];
   expect(sessionId).toBeTruthy();
+  console.log(`Created YouTube test session: ${sessionId}; program: ${programName}`);
   await page.getByRole('button',{name:'Sign out ↗'}).click();
   await page.goto('/register');
   await page.getByLabel('Your name').fill('Playback Browser Member');
@@ -134,13 +144,17 @@ test('admin assigns the supplied YouTube Live link to a session',async({page})=>
   await page.goto(`/live/${sessionId}`);
   await expect(page.locator('.errorCard')).toHaveText('Join this program to attend.');
   await page.goto('/programs');
-  await page.locator('.programCard').filter({hasText:'Yoga Everyday'}).getByRole('button',{name:'Join program →'}).click();
+  await page.locator('.programCard').filter({hasText:programName}).getByRole('button',{name:'Join program →'}).click();
   await page.goto(`/live/${sessionId}`);
   const attendanceResponse=page.waitForResponse(response=>response.url().includes(`/api/backend/v1/session-slots/${sessionId}/join`));
+  const embedRequest=page.waitForRequest(request=>request.url().startsWith('https://www.youtube-nocookie.com/embed/'));
   await page.getByRole('button',{name:'Enter class →'}).click();
   const started=await attendanceResponse;
   expect(started.status(),await started.text()).toBe(200);
   await expect(page.locator('iframe[title="Class player"]')).toBeVisible();
+  await expect(page.locator('iframe[title="Class player"]')).toHaveAttribute('referrerpolicy','strict-origin-when-cross-origin');
+  const embedHeaders=await (await embedRequest).allHeaders();
+  expect(embedHeaders.referer).toBe(new URL(page.url()).origin+'/');
   await expect(page.getByText(/YouTube|Replay|Live class/i)).toHaveCount(0);
 });
 

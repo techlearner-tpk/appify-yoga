@@ -8,6 +8,8 @@ The API checks active program enrollment, an unexpired trial or membership, enab
 
 The page shows the embedded player inside the app. A later slot starts at its scheduled offset into the day's recording. Our player requests a server generated playback configuration only after joining. Attendance heartbeats require that playback token; retries with the same request ID are idempotent. A member's normal session and Today API responses contain no provider ID, URL, or source/replay classification.
 
+The player iframe uses `strict-origin-when-cross-origin` so YouTube receives the app origin as its HTTP referrer, without the class path or playback token. YouTube error 153 indicates missing player identification; blocking all referrers on this iframe prevents playback. Other app pages retain their `no-referrer` policy.
+
 ## Admin setup
 
 1. Sign in as admin and open **Admin portal → Class times**. Select a program, set its timezone and duration, and edit, reorder, enable, or remove slots. Choose one enabled source slot. The scheduler materializes the next 14 days; edits affect tomorrow onward. The daily limit is fixed at one joined class per program.
