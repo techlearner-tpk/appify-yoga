@@ -155,6 +155,21 @@ test('admin assigns a YouTube Live link and identifies the embedded player',asyn
   await expect(page.locator('iframe[title="Class player"]')).toHaveAttribute('referrerpolicy','strict-origin-when-cross-origin');
   const embedHeaders=await (await embedRequest).allHeaders();
   expect(embedHeaders.referer).toBe(new URL(page.url()).origin+'/');
+  await page.getByRole('button',{name:'Fullscreen',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>document.fullscreenElement?.className)).toBe('classPlayer');
+  await expect(page.getByRole('button',{name:'Exit fullscreen'})).toBeVisible();
+  await page.getByRole('button',{name:'Exit fullscreen'}).click();
+  await expect.poll(()=>page.evaluate(()=>document.fullscreenElement===null)).toBe(true);
+  await page.getByRole('button',{name:'Fullscreen',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Exit fullscreen'})).toBeVisible();
+  // Headless Chromium has no browser-chrome Escape shortcut. Simulate an external exit.
+  await page.evaluate(()=>document.exitFullscreen());
+  await expect.poll(()=>page.evaluate(()=>document.fullscreenElement===null)).toBe(true);
+  await page.getByRole('button',{name:'Fullscreen',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Exit fullscreen'})).toBeVisible();
+  await page.getByRole('button',{name:'Finish class'}).click();
+  await expect.poll(()=>page.evaluate(()=>document.fullscreenElement===null)).toBe(true);
+  await expect(page.locator('iframe[title="Class player"]')).toHaveCount(0);
   await expect(page.getByText(/YouTube|Replay|Live class/i)).toHaveCount(0);
 });
 

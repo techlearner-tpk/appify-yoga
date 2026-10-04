@@ -10,6 +10,8 @@ The page shows the embedded player inside the app. A later slot starts at its sc
 
 The player iframe uses `strict-origin-when-cross-origin` so YouTube receives the app origin as its HTTP referrer, without the class path or playback token. YouTube error 153 indicates missing player identification; blocking all referrers on this iframe prevents playback. Other app pages retain their `no-referrer` policy.
 
+After entering a class, press **Fullscreen** below the player on browsers that support the Fullscreen API. The video and class controls stay inside the app, and attendance continues. Press **Exit fullscreen** or Escape to return. Fullscreen closes when playback access ends.
+
 ## Admin setup
 
 1. Sign in as admin and open **Admin portal → Class times**. Select a program, set its timezone and duration, and edit, reorder, enable, or remove slots. Choose one enabled source slot. The scheduler materializes the next 14 days; edits affect tomorrow onward. The daily limit is fixed at one joined class per program.
@@ -25,6 +27,8 @@ Before opening the generated class link, sign in as the member, open **Programs*
 ## Provider and credentials
 
 The first provider adapter is YouTube. Manual embedding needs an embeddable public or unlisted video URL or ID. Automatic readiness checks and deletion require the owning channel's OAuth client ID, client secret, and refresh token in `YOUTUBE_OAUTH_CLIENT_ID`, `YOUTUBE_OAUTH_CLIENT_SECRET`, and `YOUTUBE_OAUTH_REFRESH_TOKEN`. The refresh token must be authorized for the channel and a video management scope such as `youtube.force-ssl`; store it only in the ignored `.env` or a secret manager. No API key is used for channel deletion. The live test URL supplied for this project is `https://www.youtube.com/live/GfvVuG5mXsA` and must be treated as **unowned** unless it is your channel's video.
+
+For a broadcast intended for app members, choose **Unlisted** in YouTube Studio's Visibility setting and allow embedding. Public broadcasts can be discovered on YouTube. Unlisted broadcasts can still be opened and shared by anyone with the link. Private broadcasts require access granted through YouTube and are unsuitable for ordinary app-member embedding. Visibility does not remove YouTube branding or prevent opening the video on YouTube; see [YouTube privacy settings](https://support.google.com/youtube/answer/157177) and [player parameters](https://developers.google.com/youtube/player_parameters).
 
 The domain uses `VideoProvider`; schedules, entitlement, attendance, playback sessions, and cleanup requests use that contract. A new provider adapter can replace the YouTube implementation without changing daily participation rules.
 
