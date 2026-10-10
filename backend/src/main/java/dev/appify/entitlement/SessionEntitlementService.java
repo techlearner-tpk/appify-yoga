@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 /** The only member playback authorization policy. Provider adapters never make entitlement decisions. */
 @Service
 public class SessionEntitlementService {
-  private final JdbcTemplate db;
-  public SessionEntitlementService(JdbcTemplate db) {this.db=db;}
+  private final JdbcTemplate db;private final dev.appify.streaming.StreamConfigurationService streams;
+  public SessionEntitlementService(JdbcTemplate db,dev.appify.streaming.StreamConfigurationService streams) {this.db=db;this.streams=streams;}
 
   public enum Outcome { ALLOW,LOGIN_REQUIRED,MEMBERSHIP_REQUIRED,PROGRAM_NOT_ENROLLED,SESSION_NOT_FOUND,SESSION_NOT_OPEN,SESSION_EXPIRED,ALREADY_ATTENDED_TODAY,ASSET_NOT_READY,ACCOUNT_DISABLED }
   public record Decision(Outcome outcome,UUID slotId,UUID programId,UUID assetId,LocalDate localDate,String timezone,Instant startsAt,Instant endsAt,Instant closesAt,Instant accessExpiresAt,boolean source,String providerType,String providerAssetId) {
@@ -53,6 +53,11 @@ public class SessionEntitlementService {
     if(now.isBefore(start.minusSeconds(((Number)r.get("join_early_minutes")).longValue()*60))) return allowed.deny(Outcome.SESSION_NOT_OPEN);
     UUID joined=(UUID)r.get("joined_session_slot_id");
     if(joined!=null && !joined.equals(slotId)) return allowed.deny(Outcome.ALREADY_ATTENDED_TODAY);
+    var configured=streams.effective(slotId);
+    if(configured!=null) {
+      if(!configured.enabled()) return allowed.deny(Outcome.ASSET_NOT_READY);
+      return new Decision(Outcome.ALLOW,slotId,allowed.programId(),allowed.assetId(),allowed.localDate(),allowed.timezone(),start,end,close,assetExpires,source,configured.providerType(),null);
+    }
     String status=(String)r.get("asset_status"),assetId=(String)r.get("provider_asset_id");
     if(assetId==null || assetId.isBlank() || (!"AVAILABLE".equals(status) && !(source && ("READY_FOR_SOURCE".equals(status) || "SOURCE_ACTIVE".equals(status))))) return allowed.deny(Outcome.ASSET_NOT_READY);
     return allowed;

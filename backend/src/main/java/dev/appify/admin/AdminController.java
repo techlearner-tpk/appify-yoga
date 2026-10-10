@@ -19,8 +19,8 @@ import dev.appify.events.MessagingConfig;
 
 @RestController @RequestMapping("/api/admin")
 public class AdminController {
-  private final JdbcTemplate db; private final RabbitAdmin rabbit;private final DailySessionAssetService assets;
-  public AdminController(JdbcTemplate db,org.springframework.amqp.rabbit.connection.ConnectionFactory cf,DailySessionAssetService assets) {this.db=db;this.rabbit=new RabbitAdmin(cf);this.assets=assets;}
+  private final JdbcTemplate db; private final RabbitAdmin rabbit;private final DailySessionAssetService assets;private final dev.appify.streaming.StreamConfigurationService streams;
+  public AdminController(JdbcTemplate db,org.springframework.amqp.rabbit.connection.ConnectionFactory cf,DailySessionAssetService assets,dev.appify.streaming.StreamConfigurationService streams) {this.db=db;this.rabbit=new RabbitAdmin(cf);this.assets=assets;this.streams=streams;}
   @GetMapping("/dashboard") public Map<String,Object> dashboard() {
     Integer queue=null; try {var props=rabbit.getQueueProperties(MessagingConfig.QUEUE); if(props!=null) queue=(Integer)props.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);} catch(Exception ignored) {}
     return Map.of("users",db.queryForObject("select count(*) from app_user",Integer.class),"activeUsers",db.queryForObject("select count(distinct user_id) from attendance where joined_at>now()-interval '30 days'",Integer.class),"todaySessions",db.queryForObject("select count(*) from session where starts_at::date=current_date",Integer.class),"todayAttendance",db.queryForObject("select count(*) from attendance where joined_at::date=current_date",Integer.class),"qualifiedAttendance",db.queryForObject("select count(*) from attendance where qualified=true",Integer.class),"failedMessages",db.queryForObject("select count(*) from notification where status='FAILED'",Integer.class),"queueDepth",queue==null?-1:queue);
@@ -37,14 +37,15 @@ public class AdminController {
     UUID id=UUID.randomUUID();int sequence=db.queryForObject("select coalesce(max(sequence_number),0)+1 from class_series where program_id=?",Integer.class,p.programId());db.update("insert into class_series(id,program_id,local_time,timezone,duration_minutes,sequence_number) values(?,?,?::time,?,?,?)",id,p.programId(),p.localTime(),p.timezone(),p.durationMinutes(),sequence);db.update("update program_session_policy set source_series_id=? where program_id=? and source_series_id is null",id,p.programId());audit((UUID)auth.getPrincipal(),"SCHEDULE_CHANGED","class_series",id);return Map.of("id",id);
   }
   @GetMapping("/schedules") public List<Map<String,Object>> schedules() {return db.queryForList("select * from class_series order by local_time");}
-  public record SessionInput(UUID programId,UUID instructorId,Instant startsAt,int durationMinutes,String youtubeVideoId) {}
+  public record SessionInput(UUID programId,UUID instructorId,Instant startsAt,int durationMinutes,String youtubeVideoId,dev.appify.streaming.StreamConfiguration stream) {}
   @PostMapping("/sessions") @Transactional public Map<String,Object> session(@RequestBody SessionInput p,Authentication auth) {
     if(p.programId()==null || p.startsAt()==null || p.durationMinutes()<1) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Program, start time and duration required");
     String timezone=db.queryForObject("select timezone from program_session_policy where program_id=?",String.class,p.programId());
     ZoneId zone=ZoneId.of(timezone);LocalDate day=p.startsAt().atZone(zone).toLocalDate();UUID asset=assets.ensure(p.programId(),day,timezone);
-    if(p.youtubeVideoId()!=null && !p.youtubeVideoId().isBlank()) assets.attach(asset,"YOUTUBE",p.youtubeVideoId(),false,true);
+    if(p.stream()==null && p.youtubeVideoId()!=null && !p.youtubeVideoId().isBlank()) assets.attach(asset,"YOUTUBE",p.youtubeVideoId(),false,true);
     UUID id=UUID.randomUUID();int sequence=db.queryForObject("select coalesce(max(sequence_number),0)+1 from session where program_id=? and local_date=?",Integer.class,p.programId(),java.sql.Date.valueOf(day));
-    db.update("insert into session(id,program_id,instructor_id,starts_at,ends_at,timezone,local_date,daily_asset_id,sequence_number,status) values(?,?,?,?,?,?,?,?,?,'LIVE')",id,p.programId(),p.instructorId(),Timestamp.from(p.startsAt()),Timestamp.from(p.startsAt().plusSeconds(p.durationMinutes()*60L)),timezone,java.sql.Date.valueOf(day),asset,sequence);
+    db.update("insert into session(id,program_id,instructor_id,starts_at,ends_at,timezone,local_date,daily_asset_id,sequence_number,status) values(?,?,?,?,?,?,?,?,?,?)",id,p.programId(),p.instructorId(),Timestamp.from(p.startsAt()),Timestamp.from(p.startsAt().plusSeconds(p.durationMinutes()*60L)),timezone,java.sql.Date.valueOf(day),asset,sequence,p.startsAt().isAfter(Instant.now())?"SCHEDULED":"LIVE");
+    if(p.stream()!=null) streams.save(false,id,p.stream(),(UUID)auth.getPrincipal(),true);
     assets.setSourceIfAbsent(asset,id);audit((UUID)auth.getPrincipal(),"SESSION_CREATED","session",id);return Map.of("id",id);
   }
   @GetMapping("/sessions") public List<Map<String,Object>> sessions() {return db.queryForList("select s.*,a.provider_type,a.provider_asset_id,a.asset_status,a.recording_status from session s join daily_session_asset a on a.id=s.daily_asset_id order by s.starts_at desc limit 200");}

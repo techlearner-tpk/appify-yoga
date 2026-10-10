@@ -1,5 +1,7 @@
 # Testing
 
+Stage 1 Zoom/YouTube setup and provider security checks: [video access guide](stage1-video-access.md).
+
 - Backend unit and ArchUnit rules: `cd backend && mvn test` with Java 21, or `make test` with Docker.
 - Frontend unit and production build: `cd frontend && npm ci && npm test && npm run build`.
 - Compose smoke and API flows: `make integration-test`. One flow waits about one minute for real attendance time. A second checks slot switching, simultaneous joins, member bound join and playback tokens, tokenless attendance rejection, past date access, and member response metadata.

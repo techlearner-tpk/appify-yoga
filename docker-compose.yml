@@ -55,6 +55,7 @@ services:
       RABBITMQ_USER: wellness
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-local-rabbit-change-me}
       MAIL_HOST: mailhog
+      STREAM_ENCRYPTION_KEY: ${STREAM_ENCRYPTION_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-local-only-change-this-32-byte-secret-now}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-DemoPass123!}
       YOUTUBE_VIDEO_ID: ${YOUTUBE_VIDEO_ID:-}

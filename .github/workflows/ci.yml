@@ -49,6 +49,7 @@ jobs:
       - run: ./scripts/smoke.sh
       - run: python3 scripts/integration_flow.py
       - run: python3 scripts/session_security_flow.py
+      - run: python3 scripts/provider_security_flow.py
       - run: python3 scripts/content_smoke.py
       - uses: actions/setup-node@v4
         with: {node-version: '22', cache: npm, cache-dependency-path: frontend/package-lock.json}

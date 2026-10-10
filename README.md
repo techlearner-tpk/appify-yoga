@@ -59,3 +59,7 @@ For Windows PowerShell, use `docker compose up --build -d`, `docker compose down
 ## Current scope
 
 The repository implements the primary local demo path and the main infrastructure shape. The full production brief also calls for further hardening before paid launch: broader admin CRUD, richer reminder rules, full integration and resilience suites, and a 100 user measured load run. See [architecture](docs/architecture.md) and [testing](docs/testing.md).
+
+## Stage 1 video access
+
+Admin can configure Zoom or YouTube per program/session. See [setup, security limits, attendance behavior, and testing](docs/stage1-video-access.md).

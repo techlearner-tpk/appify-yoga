@@ -4,7 +4,8 @@ import {FormEvent,useEffect,useState} from 'react';
 import {Shell} from '@/components/Shell';
 import {Loading,ErrorNotice} from '@/components/States';
 import {api} from '@/lib/api';
-import {youtubeId} from '@/lib/youtube';
+import {StreamFields,streamFromForm} from '@/components/StreamFields';
+import {StreamConfigurationEditor} from '@/components/StreamConfigurationEditor';
 import {ScheduleEditor} from '@/components/ScheduleEditor';
 import {DailyAssetAdmin} from '@/components/DailyAssetAdmin';
 
@@ -28,9 +29,8 @@ export default function Admin(){
   const result=await api<{email:string}>('/admin/instructors',{method:'POST',body:JSON.stringify({email:form.get('email'),bio:form.get('bio')})});
   setOnboarded(`${result.email} can now sign in as an instructor.`);setInstructors(await api<Instructor[]>('/admin/instructors'));formElement.reset();
  }catch(e){setError((e as Error).message)}}
- async function createLive(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const formElement=e.currentTarget,form=new FormData(formElement),raw=String(form.get('youtubeUrl')||'').trim();
-  const video=raw?youtubeId(raw):null;if(raw&&!video){setError('Enter a valid YouTube video ID or URL.');return;}
-  try{const result=await api<{id:string}>('/admin/sessions',{method:'POST',body:JSON.stringify({programId:form.get('programId'),instructorId:form.get('instructorId')||null,startsAt:new Date().toISOString(),durationMinutes:Number(form.get('durationMinutes')),youtubeVideoId:video})});
+ async function createLive(e:FormEvent<HTMLFormElement>){e.preventDefault();setError('');const formElement=e.currentTarget,form=new FormData(formElement);
+  try{const result=await api<{id:string}>('/admin/sessions',{method:'POST',body:JSON.stringify({programId:form.get('programId'),instructorId:form.get('instructorId')||null,startsAt:form.get('startsAt')?new Date(String(form.get('startsAt'))).toISOString():new Date().toISOString(),durationMinutes:Number(form.get('durationMinutes')),stream:streamFromForm(form)})});
    setCreatedSession(`${window.location.origin}/live/${result.id}`);formElement.reset();
   }catch(e){setError((e as Error).message)}
  }
@@ -46,9 +46,9 @@ export default function Admin(){
   </div>
   <div className="contentGrid">
    <form className="panel profileForm spaced" onSubmit={onboard}><span className="eyebrow">INSTRUCTORS</span><h2>Onboard an instructor</h2><p className="muted">Ask them to create a member account first. Promote that account here; they should sign out and sign back in to see their classes.</p><label>Registered email<input name="email" type="email" required/></label><label>Bio (optional)<textarea name="bio"/></label><button className="button primary">Grant instructor access</button>{onboarded&&<div className="successMessage">{onboarded}</div>}<p className="muted">Current instructors: {instructors.map(i=>`${i.name} (${i.email})`).join(', ')||'None yet'}</p></form>
-   <form className="panel profileForm spaced" onSubmit={createLive}><span className="eyebrow">LIVE CLASSES</span><h2>Create a live session</h2><label>Program<select name="programId" required>{programs.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Instructor<select name="instructorId" required><option value="">Choose an instructor</option>{instructors.map(i=><option key={i.id} value={i.id}>{i.name} ({i.email})</option>)}</select></label><label>YouTube Live ID or URL<input name="youtubeUrl" placeholder="https://www.youtube.com/live/…" required/></label><label>Duration (minutes)<input name="durationMinutes" type="number" min="1" defaultValue="60" required/></label><button className="button primary">Start test session now</button>{createdSession&&<div className="successMessage">Member class link: <code style={{overflowWrap:'anywhere'}}>{createdSession}</code></div>}</form>
+   <form className="panel profileForm spaced" onSubmit={createLive}><span className="eyebrow">LIVE CLASSES</span><h2>Create a live session</h2><label>Program<select name="programId" required>{programs.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Instructor<select name="instructorId" required><option value="">Choose an instructor</option>{instructors.map(i=><option key={i.id} value={i.id}>{i.name} ({i.email})</option>)}</select></label><StreamFields/><label>Start time (optional; blank starts now)<input name="startsAt" type="datetime-local"/></label><label>Duration (minutes)<input name="durationMinutes" type="number" min="1" defaultValue="60" required/></label><button className="button primary">Start test session now</button>{createdSession&&<div className="successMessage">Member class link: <code style={{overflowWrap:'anywhere'}}>{createdSession}</code></div>}</form>
   </div>
-  <ScheduleEditor programs={programs}/><DailyAssetAdmin/>
+  <StreamConfigurationEditor programs={programs} refreshKey={createdSession}/><ScheduleEditor programs={programs}/><DailyAssetAdmin/>
   <form className="panel profileForm spaced" onSubmit={publish}><span className="eyebrow">LIBRARY</span><h2>Publish an article</h2><label>Title<input name="title" required/></label><label>Body<textarea name="body" required/></label><label>Image (optional)<input name="image" type="file" accept="image/png,image/jpeg,image/webp"/></label><button className="button primary">Publish article</button>{published&&<span className="successMessage">{published}</span>}</form>
  </>}</Shell>;
 }

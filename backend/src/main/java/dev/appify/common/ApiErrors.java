@@ -15,6 +15,8 @@ public class ApiErrors {
   ResponseEntity<Map<String,String>> entitlement(SessionAccessDenied ex) {return ResponseEntity.status(ex.status()).body(Map.of("outcome",ex.outcome().name(),"error",ex.outcome().name()));}
   @ExceptionHandler(ResponseStatusException.class)
   ResponseEntity<Map<String,String>> response(ResponseStatusException ex) { return ResponseEntity.status(ex.getStatusCode()).body(Map.of("error",ex.getReason()==null?"Request failed":ex.getReason())); }
+  @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+  ResponseEntity<Map<String,String>> unreadable() {return ResponseEntity.badRequest().body(Map.of("error","Invalid request body"));}
   @ExceptionHandler(MethodArgumentNotValidException.class)
   ResponseEntity<Map<String,String>> validation(MethodArgumentNotValidException ex) { return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error",ex.getBindingResult().getFieldErrors().stream().findFirst().map(e -> e.getField()+": "+e.getDefaultMessage()).orElse("Invalid request"))); }
 }

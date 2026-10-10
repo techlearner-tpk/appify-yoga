@@ -14,6 +14,7 @@ integration-test:
 	docker run --rm --network appify-yoga_default -v $(CURDIR)/scripts:/scripts:ro -e API_URL=http://backend-api:8080 -e DEMO_PASSWORD=$${DEMO_PASSWORD:-DemoPass123!} python:3.12-alpine python /scripts/integration_flow.py
 	docker run --rm --network appify-yoga_default -v $(CURDIR)/scripts:/scripts:ro -e API_URL=http://backend-api:8080 -e DEMO_PASSWORD=$${DEMO_PASSWORD:-DemoPass123!} python:3.12-alpine python /scripts/session_security_flow.py
 	docker run --rm --network appify-yoga_default -v $(CURDIR)/scripts:/scripts:ro -e API_URL=http://backend-api:8080 -e DEMO_PASSWORD=$${DEMO_PASSWORD:-DemoPass123!} python:3.12-alpine python /scripts/content_smoke.py
+	python3 scripts/provider_security_flow.py
 e2e-test:
 	docker compose up -d --build
 	docker build -f frontend/Dockerfile.e2e -t appify-yoga-e2e frontend

@@ -21,6 +21,7 @@ server:
   shutdown: graceful
 app:
   mode: ${APP_MODE:api}
+  stream-encryption-key: ${STREAM_ENCRYPTION_KEY:}
   jwt-secret: ${JWT_SECRET:local-only-change-this-32-byte-secret-now}
   web-origin: ${WEB_ORIGIN:http://localhost:3000}
   youtube-video-id: ${YOUTUBE_VIDEO_ID:}
