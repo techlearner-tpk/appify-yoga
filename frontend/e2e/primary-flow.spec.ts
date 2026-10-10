@@ -19,7 +19,12 @@ test('member can sign in, see neutral class choices, and open a class',async({pa
   await expect(page.getByText('Yoga Everyday').first()).toBeVisible();
   expect(await page.locator('.classRow').count()).toBeGreaterThanOrEqual(6);
   await expect(page.getByText(/YouTube|Replay|Live class/i)).toHaveCount(0);
-  await page.getByRole('link',{name:'View next class →'}).click();
+  // Opening a class must also work after the last scheduled slot has ended.
+  const slotId=await page.evaluate(async()=>{
+    const today=await fetch('/api/backend/today').then(r=>r.json());
+    return today.sessions.find((s:{programName:string})=>s.programName==='Yoga Everyday').slotId;
+  });
+  await page.goto(`/live/${slotId}`);
   await expect(page.getByRole('heading',{name:'Yoga Everyday',level:1})).toBeVisible();
   await page.goto('/instructor');
   await expect(page.getByText('Instructor access is granted by an admin.')).toBeVisible();

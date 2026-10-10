@@ -23,10 +23,15 @@ test('admin configures Zoom and member uses the authorized application redirect'
  const safe=await page.evaluate(async(id)=>fetch(`/api/backend/sessions/${id}`).then(r=>r.json()),sessionId);expect(JSON.stringify(safe)).not.toMatch(/provider|zoom|browser-private/i);
  // Verify the real authorized 303 before the browser can contact an external meeting.
  let redirectVerified=false;
- await page.route('**/api/provider-access/*',async route=>{
+ await page.context().route('**/*',async route=>{
+  const target=new URL(route.request().url());
+  if(target.hostname==='zoom.us'||target.hostname.endsWith('.zoom.us')){
+   await route.abort();throw new Error('Browser attempted to bypass the application redirect interception');
+  }
+  if(!target.pathname.startsWith('/api/provider-access/'))return route.continue();
   const response=await route.fetch({maxRedirects:0});expect(response.status()).toBe(303);
   expect(response.headers().location).toBe('https://us02web.zoom.us/j/12345678901?pwd=browser-private');redirectVerified=true;
-  await route.fulfill({status:200,contentType:'text/html',body:'<h1>Authorized session opened</h1>'});
+  await route.fulfill({status:200,headers:{'content-type':'text/html','cache-control':'no-store'},body:'<h1>Authorized session opened</h1>'});
  });
  await page.getByRole('button',{name:'Enter class →'}).click();
  await expect(page.getByRole('heading',{name:'Authorized session opened'})).toBeVisible();expect(redirectVerified).toBe(true);
