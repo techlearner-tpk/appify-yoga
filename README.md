@@ -63,3 +63,5 @@ The repository implements the primary local demo path and the main infrastructur
 ## Stage 1 video access
 
 Admin can configure Zoom or YouTube per program/session. See [setup, security limits, attendance behavior, and testing](docs/stage1-video-access.md).
+
+Zoom now runs inside the class page using Meeting SDK. See [free-account setup and live testing steps](docs/zoom-in-app.md) for required backend credentials and actual meeting passcode.

@@ -41,6 +41,10 @@ jobs:
           docker tag appify-yoga-frontend appify-yoga-frontend:${GITHUB_SHA}
   integration:
     runs-on: ubuntu-latest
+    env:
+      # Synthetic signing fixtures, never usable against Zoom. E2E stubs the vendor SDK.
+      ZOOM_MEETING_SDK_CLIENT_ID: ci-sdk-client-not-real
+      ZOOM_MEETING_SDK_CLIENT_SECRET: ci-sdk-secret-not-real-do-not-use-in-production
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/smoke_test.py

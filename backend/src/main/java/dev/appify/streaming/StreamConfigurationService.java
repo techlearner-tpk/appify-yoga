@@ -53,7 +53,9 @@ public class StreamConfigurationService {
       String url=null,video=null;
       if("ZOOM".equals(input.providerType()) && (input.enabled() || (input.providerJoinUrl()!=null && !input.providerJoinUrl().isBlank()))) url=ZoomSessionJoinProvider.validatedUrl(input.providerJoinUrl());
       if("YOUTUBE".equals(input.providerType()) && (input.enabled() || (input.providerVideoId()!=null && !input.providerVideoId().isBlank()))) video=videos.get("YOUTUBE").normalizeAssetId(input.providerVideoId());
-      return new StreamConfiguration(input.providerType(),input.enabled(),url,"ZOOM".equals(input.providerType())?input.providerMeetingId():null,video,"ZOOM".equals(input.providerType())?input.meetingPasscode():null,input.technicalNotes());
+      var config=new StreamConfiguration(input.providerType(),input.enabled(),url,"ZOOM".equals(input.providerType())?input.providerMeetingId():null,video,"ZOOM".equals(input.providerType())?input.meetingPasscode():null,input.technicalNotes());
+      if("ZOOM".equals(config.providerType()) && url!=null) ZoomSessionJoinProvider.meetingNumber(config);
+      return config;
     } catch(IllegalArgumentException e) {throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid streaming provider configuration");}
   }
   private StreamConfiguration decode(String encrypted) {

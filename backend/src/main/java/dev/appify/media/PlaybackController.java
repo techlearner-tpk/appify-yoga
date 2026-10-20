@@ -14,8 +14,8 @@ public class PlaybackController {
   @GetMapping("/{token}") public ResponseEntity<PlaybackService.Playback> resolve(@PathVariable String token,Authentication auth) {
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(playback.resolve((UUID)auth.getPrincipal(),token));
   }
-  @GetMapping("/{token}/open") public ResponseEntity<Void> open(@PathVariable String token,Authentication auth) {
-    return ResponseEntity.status(303).cacheControl(CacheControl.noStore()).header("Referrer-Policy","no-referrer").location(java.net.URI.create(playback.redirect((UUID)auth.getPrincipal(),token))).build();
+  @PostMapping("/{token}/sdk") public ResponseEntity<dev.appify.streaming.ZoomSdkAuthorization.Grant> sdk(@PathVariable String token,Authentication auth) {
+    return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header("Referrer-Policy","no-referrer").body(playback.sdk((UUID)auth.getPrincipal(),token));
   }
   @PostMapping("/{token}/heartbeat") public ResponseEntity<Map<String,Object>> heartbeat(@PathVariable String token,Authentication auth) {
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(playback.heartbeat((UUID)auth.getPrincipal(),token));

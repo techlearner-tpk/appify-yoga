@@ -13,6 +13,7 @@ export function StreamFields({configuration}:{configuration?:StreamConfiguration
    <label>Meeting URL<input name="meetingUrl" type="url" defaultValue={configuration?.providerJoinUrl||''} placeholder="https://us02web.zoom.us/j/…"/></label>
    <label>Meeting ID (optional)<input name="meetingId" defaultValue={configuration?.providerMeetingId||''}/></label>
    <label>Meeting Passcode (optional)<input name="meetingPasscode" type="password" autoComplete="off" defaultValue={configuration?.meetingPasscode||''}/></label>
+   <p className="panelNote">For in-app playback, enter the actual meeting passcode shown in Zoom. The encoded password in an invitation URL cannot replace it. Meeting ID must match the URL. The host starts the meeting in Zoom as usual.</p>
   </>:<label>YouTube Live ID or URL<input name="youtubeUrl" defaultValue={configuration?.providerVideoId||''} placeholder="https://www.youtube.com/live/…"/></label>}
   <label>Technical notes (admin only)<textarea name="technicalNotes" defaultValue={configuration?.technicalNotes||''}/></label>
  </>;

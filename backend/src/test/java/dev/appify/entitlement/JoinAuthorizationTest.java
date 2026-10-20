@@ -31,21 +31,29 @@ class JoinAuthorizationTest {
     assertThatThrownBy(()->new JoinLinkService(db,policy).resolve(user,token)).isInstanceOf(SessionAccessDenied.class);
     verify(db).queryForList(anyString(),eq(OpaqueTokens.hash(token)),eq(user));verifyNoInteractions(policy);
   }
-  @Test void expiredRedirectAuthorizationCannotOpenProvider() {
+  @Test void expiredAuthorizationCannotIssueSdkSignature() {
     var row=new HashMap<String,Object>();row.put("session_slot_id",slot);row.put("expires_at",Timestamp.from(Instant.now().minusSeconds(1)));row.put("status","ACTIVE");
     when(db.queryForList(anyString(),anyString(),any(UUID.class))).thenReturn(List.of(row));
     var providers=mock(SessionJoinProviderRegistry.class);var streams=mock(StreamConfigurationService.class);
-    assertThatThrownBy(()->new PlaybackService(db,policy,providers,streams).redirect(user,token)).isInstanceOf(SessionAccessDenied.class);
+    assertThatThrownBy(()->new PlaybackService(db,policy,providers,streams,mock(dev.appify.streaming.ZoomSdkAuthorization.class)).sdk(user,token)).isInstanceOf(SessionAccessDenied.class);
     verifyNoInteractions(providers,streams,policy);
   }
-  @Test void redirectHeartbeatCannotExtendItsFixedAuthorizationExpiry() {
+  @Test void sdkIssuanceRechecksEntitlementBeforeReadingSecretsOrSigning() {
+    var row=new HashMap<String,Object>();row.put("id",UUID.randomUUID());row.put("session_slot_id",slot);row.put("expires_at",Timestamp.from(Instant.now().plusSeconds(90)));row.put("status","ACTIVE");row.put("provider_type","ZOOM");
+    when(db.queryForList(anyString(),anyString(),any(UUID.class))).thenReturn(List.of(row));
+    when(policy.evaluate(eq(user),eq(slot),any())).thenReturn(new SessionEntitlementService.Decision(SessionEntitlementService.Outcome.MEMBERSHIP_REQUIRED,slot,null,null,null,null,null,null,null,null,false,null,null));
+    var providers=mock(SessionJoinProviderRegistry.class);var streams=mock(StreamConfigurationService.class);var signer=mock(dev.appify.streaming.ZoomSdkAuthorization.class);
+    assertThatThrownBy(()->new PlaybackService(db,policy,providers,streams,signer).sdk(user,token)).isInstanceOf(SessionAccessDenied.class);
+    verifyNoInteractions(providers,streams,signer);
+  }
+  @Test void entryOnlyHeartbeatCannotExtendItsFixedAuthorizationExpiry() {
     Instant expiry=Instant.now().plusSeconds(30);
     var row=new HashMap<String,Object>();row.put("id",UUID.randomUUID());row.put("session_slot_id",slot);row.put("expires_at",Timestamp.from(expiry));row.put("status","ACTIVE");row.put("provider_type","ZOOM");
     when(db.queryForList(anyString(),anyString(),any(UUID.class))).thenReturn(List.of(row));
     when(db.update(anyString(),any(Timestamp.class),any(Timestamp.class),any(UUID.class),any(Timestamp.class))).thenReturn(1);
     when(policy.evaluate(eq(user),eq(slot),any())).thenReturn(new SessionEntitlementService.Decision(SessionEntitlementService.Outcome.ALLOW,slot,null,null,null,null,null,null,Instant.now().plusSeconds(900),Instant.now().plusSeconds(3600),false,"ZOOM",null));
-    var providers=new SessionJoinProviderRegistry(List.of(new dev.appify.streaming.ZoomSessionJoinProvider()));
-    var result=new PlaybackService(db,policy,providers,mock(StreamConfigurationService.class)).heartbeat(user,token);
+    var providers=new SessionJoinProviderRegistry(List.of(new dev.appify.streaming.ZoomSessionJoinProvider(mock(dev.appify.streaming.ZoomSdkAuthorization.class))));
+    var result=new PlaybackService(db,policy,providers,mock(StreamConfigurationService.class),mock(dev.appify.streaming.ZoomSdkAuthorization.class)).heartbeat(user,token);
     assertThat(result.get("expiresAt")).isEqualTo(expiry);
   }
   @Test void rejectedEntitlementDoesNotRecordAttendanceOrPrepareProvider() {

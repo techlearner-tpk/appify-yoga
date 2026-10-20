@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class PlaybackService {
-  private final JdbcTemplate db;private final SessionEntitlementService entitlements;private final dev.appify.streaming.SessionJoinProviderRegistry providers;private final dev.appify.streaming.StreamConfigurationService streams;
-  public PlaybackService(JdbcTemplate db,SessionEntitlementService entitlements,dev.appify.streaming.SessionJoinProviderRegistry providers,dev.appify.streaming.StreamConfigurationService streams) {this.db=db;this.entitlements=entitlements;this.providers=providers;this.streams=streams;}
+  private final dev.appify.streaming.ZoomSdkAuthorization zoom;private final JdbcTemplate db;private final SessionEntitlementService entitlements;private final dev.appify.streaming.SessionJoinProviderRegistry providers;private final dev.appify.streaming.StreamConfigurationService streams;
+  public PlaybackService(JdbcTemplate db,SessionEntitlementService entitlements,dev.appify.streaming.SessionJoinProviderRegistry providers,dev.appify.streaming.StreamConfigurationService streams,dev.appify.streaming.ZoomSdkAuthorization zoom) {this.zoom=zoom;this.db=db;this.entitlements=entitlements;this.providers=providers;this.streams=streams;}
   public record Playback(String playerType,String embedUrl,String redirectUrl,Instant expiresAt,int heartbeatIntervalSeconds) {}
 
   public Playback resolve(UUID user,String token) {
@@ -22,14 +22,16 @@ public class PlaybackService {
     var decision=entitlements.evaluate(user,(UUID)access.get("session_slot_id"),Instant.now());
     var player=experience(user,access,decision);
     boolean embedded="EMBEDDED".equals(player.playerType());
-    return new Playback(player.playerType(),embedded?player.destination():null,embedded?null:"/api/provider-access/"+token,(Instant)access.get("effective_expiry"),embedded?60:0);
+    return new Playback(player.playerType(),embedded?player.destination():"/meeting/"+token,null,(Instant)access.get("effective_expiry"),embedded?60:0);
   }
-  public String redirect(UUID user,String token) {
+  @org.springframework.transaction.annotation.Transactional
+  public dev.appify.streaming.ZoomSdkAuthorization.Grant sdk(UUID user,String token) {
+    // Serialize issuance with admin stream changes and session joins.
+    db.queryForList("select s.id from session s join playback_session p on p.session_slot_id=s.id where p.token_hash=? and p.user_id=? for update of s",OpaqueTokens.hash(token),user);
     var access=touch(user,token);
-    var decision=entitlements.evaluate(user,(UUID)access.get("session_slot_id"),Instant.now());
-    var player=experience(user,access,decision);
-    if(!"REDIRECT".equals(player.playerType())) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"This session opens inside the application");
-    return player.destination();
+    if(!"ZOOM".equals(access.get("provider_type"))) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"This session does not use a meeting client");
+    String name=db.queryForObject("select display_name from app_user where id=?",String.class,user);
+    return zoom.prepare(streams.forJoin((UUID)access.get("session_slot_id")),name,Instant.now());
   }
   private dev.appify.streaming.SessionJoinProvider.Experience experience(UUID user,Map<String,Object> access,SessionEntitlementService.Decision decision) {
     return providers.get(decision.providerType()).prepareJoin(streams.forJoin((UUID)access.get("session_slot_id")),user,Duration.ofSeconds(decision.scheduledOffset(Instant.now())),decision.source());
@@ -56,7 +58,7 @@ public class PlaybackService {
     var decision=entitlements.evaluate(user,(UUID)row.get("session_slot_id"),now);
     if(!decision.allowed()) throw new SessionAccessDenied(decision.outcome());
     if(!decision.providerType().equals(row.get("provider_type"))) throw new SessionAccessDenied(SessionEntitlementService.Outcome.SESSION_EXPIRED);
-    // Redirect grants have a fixed two-minute lifetime; heartbeat must not extend them.
+    // Entry-only grants have a fixed lifetime; heartbeat must not extend them.
     Instant expires=!providers.get(decision.providerType()).tracksDuration()?((Timestamp)row.get("expires_at")).toInstant():now.plusSeconds(providers.get(decision.providerType()).authorizationLifetimeSeconds());
     if(expires.isAfter(decision.closesAt())) expires=decision.closesAt();
     if(expires.isAfter(decision.accessExpiresAt())) expires=decision.accessExpiresAt();

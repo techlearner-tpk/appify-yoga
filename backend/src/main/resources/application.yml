@@ -22,6 +22,9 @@ server:
 app:
   mode: ${APP_MODE:api}
   stream-encryption-key: ${STREAM_ENCRYPTION_KEY:}
+  zoom:
+    client-id: ${ZOOM_MEETING_SDK_CLIENT_ID:}
+    client-secret: ${ZOOM_MEETING_SDK_CLIENT_SECRET:}
   jwt-secret: ${JWT_SECRET:local-only-change-this-32-byte-secret-now}
   web-origin: ${WEB_ORIGIN:http://localhost:3000}
   youtube-video-id: ${YOUTUBE_VIDEO_ID:}

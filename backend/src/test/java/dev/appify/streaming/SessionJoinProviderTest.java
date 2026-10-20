@@ -9,7 +9,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 class SessionJoinProviderTest {
   @Test void resolvesProvidersAndRejectsUnknownTypes() {
-    var zoom=new ZoomSessionJoinProvider();var youtube=new YouTubeSessionJoinProvider(mock(VideoProviderRegistry.class));
+    var zoom=new ZoomSessionJoinProvider(mock(ZoomSdkAuthorization.class));var youtube=new YouTubeSessionJoinProvider(mock(VideoProviderRegistry.class));
     var registry=new SessionJoinProviderRegistry(List.of(zoom,youtube));
     assertThat(registry.get("ZOOM")).isSameAs(zoom);assertThat(registry.get("YOUTUBE")).isSameAs(youtube);
     assertThatThrownBy(()->registry.get("OTHER")).isInstanceOf(IllegalArgumentException.class);
@@ -18,8 +18,8 @@ class SessionJoinProviderTest {
   @Test void zoomAllowsOnlyMeetingDestinationsAndRedactsDiagnostics() {
     String url="https://us02web.zoom.us/j/123456789?pwd=private";
     var config=new StreamConfiguration("ZOOM",true,url,null,null,"secret","host notes");
-    var player=new ZoomSessionJoinProvider().prepareJoin(config,UUID.randomUUID(),Duration.ZERO,true);
-    assertThat(player.destination()).isEqualTo(url);assertThat(player.playerType()).isEqualTo("REDIRECT");
+    var player=new ZoomSessionJoinProvider(mock(ZoomSdkAuthorization.class)).prepareJoin(config,UUID.randomUUID(),Duration.ZERO,true);
+    assertThat(player.destination()).isNull();assertThat(player.playerType()).isEqualTo("ZOOM_SDK");
     assertThat(config.toString()+player.toString()).doesNotContain("private","secret","host notes",url);
     for(String bad:List.of("https://zoom.us.evil.test/j/123","http://zoom.us/j/123","https://zoom.us@evil.test/j/123","https://zoom.us/oauth/authorize","javascript:alert(1)")) assertThatThrownBy(()->ZoomSessionJoinProvider.validatedUrl(bad)).isInstanceOf(IllegalArgumentException.class).hasMessageNotContaining(bad);
   }

@@ -71,23 +71,30 @@ expect(404,call('/api/v1/join-links/'+link,token=users[1]))
 expect(200,call('/api/v1/join-links/'+link,token=users[0]))
 joined=expect(200,call(path,'POST',{},users[0]));safe(joined)
 token=joined['playbackToken'];experience=expect(200,call('/api/v1/playback/'+token,token=users[0]));safe(experience)
-assert experience['playerType']=='REDIRECT' and experience['redirectUrl'].startswith('/api/provider-access/')
-expect(404,call('/api/v1/playback/'+token+'/open',token=users[1]))
-redirect=call('/api/v1/playback/'+token+'/open',token=users[0]);expect(303,redirect)
-assert redirect[2]['Location']==zoom['providerJoinUrl']
-assert redirect[2]['Cache-Control']=='no-store'
+expect(403,call('/api/v1/playback/'+token+'/sdk','POST',{}))
+assert experience['playerType']=='ZOOM_SDK' and experience['embedUrl'].startswith('/meeting/')
+assert experience['redirectUrl'] is None
+expect(404,call('/api/v1/playback/'+token+'/sdk','POST',{},users[1]))
+grant=call('/api/v1/playback/'+token+'/sdk','POST',{},users[0]);expect(200,grant)
+assert grant[2]['Cache-Control']=='no-store'
+assert grant[1]['meetingNumber']=='12345678901' and grant[1]['password']=='stage1-private'
+assert 'clientSecret' not in grant[1] and 'providerJoinUrl' not in grant[1] and 'zak' not in grant[1]
+import base64
+claims=json.loads(base64.urlsafe_b64decode(grant[1]['signature'].split('.')[1]+'=='))
+assert claims['role']==0 and claims['mn']=='12345678901' and claims['exp']-claims['iat']==1800
 attendance=expect(200,call('/api/attendance/'+slot,token=users[0]));assert attendance['watched_seconds']==0 and not attendance['qualified']
 expect(403,call('/api/attendance/heartbeat','POST',{'sessionId':slot,'requestId':str(uuid.uuid4()),'playbackToken':token},users[0]))
 # Configuration changes before start are honored by new grants and revoke the old grants.
 expect(200,call(f'/api/admin/sessions/{slot}/stream','PUT',youtube,admin))
-expect(409,call('/api/v1/playback/'+token+'/open',token=users[0]))
+expect(409,call('/api/v1/playback/'+token+'/sdk','POST',{},users[0]))
 joined=expect(200,call(path,'POST',{},users[0]));token=joined['playbackToken'];experience=expect(200,call('/api/v1/playback/'+token,token=users[0]))
 assert experience['playerType']=='EMBEDDED' and experience['embedUrl'].startswith('https://www.youtube-nocookie.com/embed/')
-expect(409,call('/api/v1/playback/'+token+'/open',token=users[0]))
+expect(409,call('/api/v1/playback/'+token+'/sdk','POST',{},users[0]))
 user_id=sql("select user_id from playback_session where token_hash='"+digest(token)+"';")
 assert str(uuid.UUID(user_id))==user_id
 sql(f"update membership_entitlement set valid_until=now()-interval '1 second' where user_id='{user_id}';")
 expect(403,call(path,'POST',{},users[0]));expect(403,call('/api/v1/playback/'+token,token=users[0]))
+expect(403,call('/api/v1/playback/'+token+'/sdk','POST',{},users[0]))
 sql(f"update membership_entitlement set valid_until=now()+interval '1 day' where user_id='{user_id}'; update app_user set disabled=true where id='{user_id}';")
 expect(403,call(path,'POST',{},users[0]))
 sql(f"update app_user set disabled=false where id='{user_id}'; update session_join_link set expires_at=now()-interval '1 second' where token_hash='{digest(link)}'; update playback_session set expires_at=now()-interval '1 second' where token_hash='{digest(token)}';")
@@ -99,4 +106,4 @@ assert sql(f"select encrypted_configuration from session_stream_configuration wh
 assert 'stage1-private' not in sql(f"select encrypted_configuration from session_stream_configuration where program_id='{program}';")
 logs=subprocess.run(['docker','compose','logs','--no-color','backend-api','frontend','scheduler','background-worker'],capture_output=True,text=True,check=True).stdout
 assert all(secret not in logs for secret in ['stage1-private',zoom['providerJoinUrl'],youtube['providerVideoId']]),'Provider secrets appeared in logs'
-print('Provider security passed: inherited/overridden configuration, encrypted secrets, authorized redirect/embed, disabled streams, membership checks, user-bound grants, token expiry, entry-only attendance, no log leaks')
+print('Provider security passed: inherited/overridden configuration, encrypted secrets, authorized in-app meeting/embed, disabled streams, membership checks, user-bound grants, token expiry, entry-only attendance, no log leaks')
