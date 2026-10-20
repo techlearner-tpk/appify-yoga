@@ -5,7 +5,8 @@ RUN mvn -q -DskipTests dependency:go-offline
 COPY src src
 RUN mvn -q -DskipTests package
 FROM eclipse-temurin:21-jre-alpine
-RUN addgroup -S app && adduser -S app -G app
+# Base image may lag Alpine's CVE-2026-77214 fix; require the patched XML parser.
+RUN apk add --no-cache 'libexpat>=2.9.0-r0' && addgroup -S app && adduser -S app -G app
 WORKDIR /app
 COPY --from=build /app/target/wellness-0.1.0.jar app.jar
 USER app
