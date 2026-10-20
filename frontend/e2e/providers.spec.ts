@@ -18,11 +18,15 @@ test('admin configures Zoom and member stays inside the embedded meeting',async(
  await form.getByLabel('Meeting Passcode (optional)').fill('browser-private');
  await form.getByLabel('Meeting ID (optional)').fill('99999999999');
  await form.getByRole('button',{name:'Start live session now'}).click();
- await expect(form.getByRole('alert')).toContainText('Invalid streaming provider configuration');
+ await expect(form.getByRole('alert')).toContainText('Meeting ID must match the meeting URL');
  await expect(form.getByLabel('Meeting URL')).toHaveValue('https://us02web.zoom.us/j/12345678901?pwd=browser-private');
  await form.getByLabel('Meeting ID (optional)').fill('');
  await form.getByRole('button',{name:'Start live session now'}).click();const created=page.getByText(/Member class link:/);await expect(created).toBeVisible();
  const sessionId=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];expect(sessionId).toBeTruthy();
+ const editor=page.locator('section').filter({has:page.getByRole('heading',{name:'Streaming configuration',exact:true})});
+ await editor.getByLabel('Configure').selectOption('sessions');await editor.getByLabel('Configuration target').selectOption(sessionId!);
+ await editor.getByLabel('Actual Zoom passcode',{exact:true}).fill('browser-corrected');await editor.getByRole('button',{name:'Update Zoom passcode'}).click();
+ await expect(editor.getByRole('status')).toContainText('Zoom passcode updated');await expect(editor.getByLabel('Actual Zoom passcode',{exact:true})).toHaveValue('');
  await page.getByRole('button',{name:'Sign out ↗'}).click();await page.goto('/register');await page.getByLabel('Your name').fill('Zoom Member');await page.getByLabel('Email').fill(`zoom-browser-${Date.now()}@example.test`);await page.getByLabel('Password').fill('DemoPass123!');await page.getByRole('button',{name:'Create account →'}).click();
  const program=page.locator('.programCard').filter({hasText:name});await program.getByRole('button',{name:'Join program →'}).click();await expect(program.getByRole('button',{name:'Enrolled ✓'})).toBeDisabled();
  await page.goto(`/live/${sessionId}`);
@@ -31,7 +35,7 @@ test('admin configures Zoom and member stays inside the embedded meeting',async(
  const safe=await page.evaluate(async(id)=>fetch(`/api/backend/sessions/${id}`).then(r=>r.json()),sessionId);expect(JSON.stringify(safe)).not.toMatch(/provider|zoom|browser-private/i);
  // Only the external Zoom SDK is stubbed; login, entitlement, grant and signing are real.
  await page.context().route('https://source.zoom.us/**',async route=>{
-  if(route.request().url().includes('zoom-meeting-6.5.0.min.js'))return route.fulfill({contentType:'text/javascript',body:`window.ZoomMtg={setZoomJSLib(){},preLoadWasm(){},prepareWebSDK(){},i18n:{load(){},onLoad(fn){fn()}},init(o){o.success()},join(o){const c=JSON.parse(atob(o.signature.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(c.role!==0||c.mn!=='12345678901'||o.passWord!=='browser-private'||o.userName!=='Zoom Member')throw Error('Invalid SDK grant');document.getElementById('zmmtg-root').innerHTML='<h1>Authorized in-app meeting</h1>';o.success()}};`});
+  if(route.request().url().includes('zoom-meeting-6.5.0.min.js'))return route.fulfill({contentType:'text/javascript',body:`window.ZoomMtg={setZoomJSLib(){},preLoadWasm(){},prepareWebSDK(){},i18n:{load(){},onLoad(fn){fn()}},init(o){o.success()},join(o){const c=JSON.parse(atob(o.signature.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(c.role!==0||c.mn!=='12345678901'||o.passWord!=='browser-corrected'||o.userName!=='Zoom Member')throw Error('Invalid SDK grant');document.getElementById('zmmtg-root').innerHTML='<h1>Authorized in-app meeting</h1>';o.success()}};`});
   return route.fulfill({contentType:route.request().url().endsWith('.css')?'text/css':'text/javascript',body:''});
  });
  const before=page.context().pages().length;

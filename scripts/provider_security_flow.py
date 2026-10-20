@@ -101,9 +101,30 @@ sql(f"update app_user set disabled=false where id='{user_id}'; update session_jo
 expect(409,call('/api/v1/join-links/'+link,token=users[0]));expect(409,call('/api/v1/playback/'+token,token=users[0]))
 sql(f"update session set starts_at=now()-interval '1 minute' where id='{slot}';")
 expect(409,call(f'/api/admin/sessions/{slot}/stream','PUT',zoom,admin))
+# A running session permits only a passcode correction, never a provider/meeting switch.
+expect(409,call(f'/api/admin/sessions/{slot}/stream/passcode','PUT',{'meetingPasscode':'corrected-private'},admin))
+running=expect(200,call('/api/admin/sessions','POST',{'programId':program,'startsAt':datetime.now(timezone.utc).isoformat(),'durationMinutes':15,'stream':zoom},admin))['id']
+repair=f'/api/admin/sessions/{running}/stream/passcode'
+expect(403,call(repair,'PUT',{'meetingPasscode':'corrected-private'}))
+expect(403,call(repair,'PUT',{'meetingPasscode':'corrected-private'},users[1]))
+expect(403,call(repair,'PUT',{'meetingPasscode':'corrected-private'},instructor))
+expect(400,call(repair,'PUT',{'meetingPasscode':''},admin))
+old=expect(200,call(f'/api/v1/session-slots/{running}/join','POST',{},users[1]))['playbackToken']
+expect(200,call(repair,'PUT',{'meetingPasscode':'corrected-private','providerJoinUrl':'https://zoom.us/j/99999999999'},admin))
+expect(409,call('/api/v1/playback/'+old+'/sdk','POST',{},users[1]))
+repaired=expect(200,call(f'/api/admin/sessions/{running}/stream',token=admin))['configuration']
+assert repaired['providerJoinUrl']==zoom['providerJoinUrl'] and repaired['providerType']=='ZOOM'
+assert repaired['meetingPasscode']=='corrected-private'
+fresh=expect(200,call(f'/api/v1/session-slots/{running}/join','POST',{},users[1]))['playbackToken']
+assert expect(200,call('/api/v1/playback/'+fresh+'/sdk','POST',{},users[1]))['password']=='corrected-private'
+expect(409,call(f'/api/admin/sessions/{running}/stream','PUT',youtube,admin))
+safe(expect(200,call(f'/api/sessions/{running}',token=users[1])))
+attendance=expect(200,call('/api/attendance/'+running,token=users[1]));assert attendance['watched_seconds']==0 and not attendance['qualified']
+sql(f"update session set ends_at=now()-interval '1 second',starts_at=now()-interval '16 minutes' where id='{running}';")
+expect(409,call(repair,'PUT',{'meetingPasscode':'corrected-private'},admin))
 # Ciphertext and normal logs must not contain meeting credentials.
 assert sql(f"select encrypted_configuration from session_stream_configuration where program_id='{program}';").startswith('v1:')
 assert 'stage1-private' not in sql(f"select encrypted_configuration from session_stream_configuration where program_id='{program}';")
 logs=subprocess.run(['docker','compose','logs','--no-color','backend-api','frontend','scheduler','background-worker'],capture_output=True,text=True,check=True).stdout
-assert all(secret not in logs for secret in ['stage1-private',zoom['providerJoinUrl'],youtube['providerVideoId']]),'Provider secrets appeared in logs'
+assert all(secret not in logs for secret in ['stage1-private','corrected-private',zoom['providerJoinUrl'],youtube['providerVideoId']]),'Provider secrets appeared in logs'
 print('Provider security passed: inherited/overridden configuration, encrypted secrets, authorized in-app meeting/embed, disabled streams, membership checks, user-bound grants, token expiry, entry-only attendance, no log leaks')

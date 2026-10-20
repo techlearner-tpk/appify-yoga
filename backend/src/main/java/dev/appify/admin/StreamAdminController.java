@@ -15,5 +15,12 @@ public class StreamAdminController {
   @GetMapping("/sessions/{id}/stream") public ResponseEntity<Map<String,Object>> session(@PathVariable UUID id) {return response(false,id);}
   @PutMapping("/programs/{id}/stream") public ResponseEntity<Map<String,Object>> saveProgram(@PathVariable UUID id,@RequestBody StreamConfiguration config,Authentication auth) {streams.save(true,id,config,(UUID)auth.getPrincipal(),false);return response(true,id);}
   @PutMapping("/sessions/{id}/stream") public ResponseEntity<Map<String,Object>> saveSession(@PathVariable UUID id,@RequestBody StreamConfiguration config,Authentication auth) {streams.save(false,id,config,(UUID)auth.getPrincipal(),false);return response(false,id);}
+  public record PasscodeCorrection(String meetingPasscode) {
+    @Override public String toString() {return "PasscodeCorrection[redacted]";}
+  }
+  @PutMapping("/sessions/{id}/stream/passcode") public ResponseEntity<Map<String,Object>> correctPasscode(@PathVariable UUID id,@RequestBody PasscodeCorrection input,Authentication auth) {
+    streams.correctPasscode(id,input.meetingPasscode(),(UUID)auth.getPrincipal());
+    return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("updated",true));
+  }
   private ResponseEntity<Map<String,Object>> response(boolean program,UUID id) {return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(streams.adminGet(program,id));}
 }

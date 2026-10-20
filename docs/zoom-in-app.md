@@ -77,3 +77,14 @@ Those values cannot join real Zoom meetings. Unset both exports before recreatin
 - **Player cannot load**: allow `source.zoom.us`; the app downloads the pinned SDK and media assets on demand. No npm React downgrade is required.
 - **Unable to reconnect**: Finish class, then Enter class to obtain a fresh grant while the session window and membership remain valid.
 - **Session is not visible / create button seems inactive**: explicitly choose the same program the member enrolled in, complete the enabled provider's URL/video field, and check the validation/error message beside the create button. Instructor assignment is optional. A blank start publishes now; a future start uses **Schedule session** and appears in Today’s classes on that date. An already-open member dashboard refreshes every 30 seconds and when brought back into focus. Successful creation shows the program name and a clickable member class link. Publishing a session does not start its Zoom host meeting.
+
+### Correct a passcode after class starts
+
+In **Admin portal → Streaming configuration**, choose **Session override** and the session.
+Use **Correct Zoom passcode** with the actual passcode from Zoom's meeting details (Personal Room for a personal meeting ID).
+This ADMIN-only operation saves an encrypted session override and revokes outstanding app playback grants.
+It changes only the saved passcode; meeting URL, provider, schedule, enrollment and daily participation stay intact.
+Ended or cancelled sessions cannot be corrected. Provider/meeting changes still require a future session.
+Members with the previous player open should choose **Finish class**, then **Enter class** to obtain a fresh authorization for the same session.
+The invitation URL's encoded `pwd` value is not the Meeting SDK passcode. Do not paste passcodes into chat, logs or source control.
+If Zoom has a waiting room, the host must start that same meeting and admit the member.

@@ -39,13 +39,27 @@ public class StreamConfigurationService {
       if(!initial && Boolean.TRUE.equals(rows.get(0).get("started"))) throw new ResponseStatusException(HttpStatus.CONFLICT,"Stream configuration can only change before the session starts");
     }
     StreamConfiguration config=validate(input);
+    persist(program,id,config,actor,"STREAM_CONFIGURATION_UPDATED");
+  }
+  /** Repair a credential typo without switching a running session's provider or meeting. */
+  @Transactional public void correctPasscode(UUID id,String passcode,UUID actor) {
+    var rows=db.queryForList("select ends_at<=now() as ended,status from session where id=? for update",id);
+    if(rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Session not found");
+    if(Boolean.TRUE.equals(rows.get(0).get("ended")) || "CANCELLED".equals(rows.get(0).get("status"))) throw new ResponseStatusException(HttpStatus.CONFLICT,"Cannot correct an ended or cancelled session");
+    var current=forJoin(id);
+    if(!"ZOOM".equals(current.providerType())) throw new ResponseStatusException(HttpStatus.CONFLICT,"This session does not use Zoom");
+    if(passcode==null || passcode.isBlank() || passcode.length()>128) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Enter the actual Zoom meeting passcode");
+    var config=validate(new StreamConfiguration(current.providerType(),current.enabled(),current.providerJoinUrl(),current.providerMeetingId(),current.providerVideoId(),passcode,current.technicalNotes()));
+    persist(false,id,config,actor,"STREAM_PASSCODE_CORRECTED");
+  }
+  private void persist(boolean program,UUID id,StreamConfiguration config,UUID actor,String action) {
     String column=program?"program_id":"session_id";
     try {
       db.update("insert into session_stream_configuration(id,"+column+",provider_type,enabled,encrypted_configuration) values(?,?,?,?,?) on conflict("+column+") do update set provider_type=excluded.provider_type,enabled=excluded.enabled,encrypted_configuration=excluded.encrypted_configuration,updated_at=now()",UUID.randomUUID(),id,config.providerType(),config.enabled(),secrets.encrypt(json.writeValueAsString(config)));
     } catch(com.fasterxml.jackson.core.JsonProcessingException e) {throw new IllegalStateException("Unable to save stream configuration");}
     // Outstanding access grants must never silently switch providers.
     db.update("update playback_session set status='REVOKED' where status='ACTIVE' and session_slot_id in (select s.id from session s where "+(program?"s.program_id":"s.id")+"=?"+(program?" and not exists(select 1 from session_stream_configuration c where c.session_id=s.id)":"")+")",id);
-    db.update("insert into audit_log(id,actor_id,action,entity_type,entity_id) values(?,?,?,?,?)",UUID.randomUUID(),actor,"STREAM_CONFIGURATION_UPDATED",program?"program":"session",id);
+    db.update("insert into audit_log(id,actor_id,action,entity_type,entity_id) values(?,?,?,?,?)",UUID.randomUUID(),actor,action,program?"program":"session",id);
   }
   public StreamConfiguration validate(StreamConfiguration input) {
     if(input==null || !("ZOOM".equals(input.providerType()) || "YOUTUBE".equals(input.providerType()))) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Choose Zoom or YouTube Live");
@@ -56,7 +70,12 @@ public class StreamConfigurationService {
       var config=new StreamConfiguration(input.providerType(),input.enabled(),url,"ZOOM".equals(input.providerType())?input.providerMeetingId():null,video,"ZOOM".equals(input.providerType())?input.meetingPasscode():null,input.technicalNotes());
       if("ZOOM".equals(config.providerType()) && url!=null) ZoomSessionJoinProvider.meetingNumber(config);
       return config;
-    } catch(IllegalArgumentException e) {throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid streaming provider configuration");}
+    } catch(IllegalArgumentException e) {
+      // Expose only our fixed validation messages, never parser input or secret values.
+      String message="Invalid streaming provider configuration";
+      if("ZOOM".equals(input.providerType()) && java.util.Set.of("Enter a valid HTTPS Zoom meeting URL","Enter a valid Zoom meeting number","Meeting ID must match the meeting URL","Enter the actual Zoom meeting passcode separately for in-app playback").contains(e.getMessage()==null?"":e.getMessage())) message=e.getMessage();
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,message);
+    }
   }
   private StreamConfiguration decode(String encrypted) {
     try {return json.readValue(secrets.decrypt(encrypted),StreamConfiguration.class);} catch(Exception e) {throw new IllegalStateException("Unable to read stream configuration");}
