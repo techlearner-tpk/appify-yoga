@@ -132,10 +132,10 @@ test('admin assigns a YouTube Live link and identifies the embedded player',asyn
   await form.getByLabel('Instructor').selectOption({label:'Asha Rao (instructor@example.test)'});
   await form.getByLabel('YouTube Live ID or URL').fill('https://www.youtube.com/live/2afajz1hd-E?si=IHDab4g6ie0vsPe3');
   await form.getByLabel('Duration (minutes)').fill('15');
-  await form.getByRole('button',{name:'Start test session now'}).click();
+  await form.getByRole('button',{name:'Start live session now'}).click();
   const created=page.getByText(/Member class link:/);
   await expect(created).toBeVisible();
-  await expect(form.getByLabel('YouTube Live ID or URL')).toHaveValue('');
+  await expect(form.getByLabel('YouTube Live ID or URL')).toHaveValue('https://www.youtube.com/live/2afajz1hd-E?si=IHDab4g6ie0vsPe3');
   await expect(page.locator('.errorCard')).toHaveCount(0);
   const sessionId=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];
   expect(sessionId).toBeTruthy();

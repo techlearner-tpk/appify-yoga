@@ -8,12 +8,20 @@ test('admin configures Zoom and member stays inside the embedded meeting',async(
  const catalog=page.locator('form').filter({has:page.getByRole('heading',{name:'Create a program'})});
  await catalog.getByLabel('Name',{exact:true}).fill(name);await catalog.getByLabel('Description').fill('Stage 1 provider verification');await catalog.getByRole('button',{name:'Create program'}).click();await expect(page.getByText(/Program created:/)).toBeVisible();
  const form=page.locator('form').filter({has:page.getByRole('heading',{name:'Create a live session'})});
- await form.getByLabel('Program').selectOption({label:name});await form.getByLabel('Instructor').selectOption({label:'Asha Rao (instructor@example.test)'});
+ await form.getByRole('button',{name:'Start live session now'}).click();
+ await expect(form.getByRole('alert')).toContainText('Complete the highlighted fields');
+ await form.getByLabel('Program').selectOption({label:name});
+ await expect(form.getByLabel('Instructor')).toHaveValue('');
  await form.getByLabel('Streaming Provider').selectOption('ZOOM');
  await expect(form.getByLabel('YouTube Live ID or URL')).toHaveCount(0);
  await form.getByLabel('Meeting URL').fill('https://us02web.zoom.us/j/12345678901?pwd=browser-private');
  await form.getByLabel('Meeting Passcode (optional)').fill('browser-private');
- await form.getByRole('button',{name:'Start test session now'}).click();const created=page.getByText(/Member class link:/);await expect(created).toBeVisible();
+ await form.getByLabel('Meeting ID (optional)').fill('99999999999');
+ await form.getByRole('button',{name:'Start live session now'}).click();
+ await expect(form.getByRole('alert')).toContainText('Invalid streaming provider configuration');
+ await expect(form.getByLabel('Meeting URL')).toHaveValue('https://us02web.zoom.us/j/12345678901?pwd=browser-private');
+ await form.getByLabel('Meeting ID (optional)').fill('');
+ await form.getByRole('button',{name:'Start live session now'}).click();const created=page.getByText(/Member class link:/);await expect(created).toBeVisible();
  const sessionId=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];expect(sessionId).toBeTruthy();
  await page.getByRole('button',{name:'Sign out ↗'}).click();await page.goto('/register');await page.getByLabel('Your name').fill('Zoom Member');await page.getByLabel('Email').fill(`zoom-browser-${Date.now()}@example.test`);await page.getByLabel('Password').fill('DemoPass123!');await page.getByRole('button',{name:'Create account →'}).click();
  const program=page.locator('.programCard').filter({hasText:name});await program.getByRole('button',{name:'Join program →'}).click();await expect(program.getByRole('button',{name:'Enrolled ✓'})).toBeDisabled();
@@ -52,7 +60,24 @@ test('admin can save a program default and change a future session override',asy
  const editor=page.locator('section').filter({has:page.getByRole('heading',{name:'Streaming configuration',exact:true})});
  await editor.getByLabel('Configuration target').selectOption({label:name});await editor.getByLabel('Streaming Provider').selectOption('ZOOM');await editor.getByLabel('Meeting URL').fill('https://zoom.us/j/12345678901?pwd=editor-private');await editor.getByLabel('Meeting Passcode (optional)').fill('editor-private');await editor.getByRole('button',{name:'Save streaming configuration'}).click();await expect(editor.getByText('Streaming configuration saved.')).toBeVisible();
  const form=page.locator('form').filter({has:page.getByRole('heading',{name:'Create a live session'})});await form.getByLabel('Program').selectOption({label:name});await form.getByLabel('Instructor').selectOption({label:'Asha Rao (instructor@example.test)'});await form.getByLabel('YouTube Live ID or URL').fill('2afajz1hd-E');
- const start=new Date(Date.now()+120000);const local=new Date(start.getTime()-start.getTimezoneOffset()*60000).toISOString().slice(0,16);await form.getByLabel('Start time (optional; blank starts now)').fill(local);await form.getByRole('button',{name:'Start test session now'}).click();const created=page.getByText(/Member class link:/);await expect(created).toBeVisible();const id=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];expect(id).toBeTruthy();
+ const start=new Date(Date.now()+120000);const local=new Date(start.getTime()-start.getTimezoneOffset()*60000).toISOString().slice(0,16);await form.getByLabel('Start time (optional; blank starts now)').fill(local);await form.getByRole('button',{name:'Schedule session'}).click();const created=page.getByText(/Member class link:/);await expect(created).toBeVisible();const id=(await created.textContent())?.match(/[0-9a-f-]{36}/)?.[0];expect(id).toBeTruthy();
  await editor.getByLabel('Configure').selectOption('sessions');await editor.getByLabel('Configuration target').selectOption(id!);await expect(editor.getByLabel('YouTube Live ID or URL')).toHaveValue('2afajz1hd-E');await editor.getByLabel('Streaming Provider').selectOption('ZOOM');await editor.getByLabel('Meeting URL').fill('https://zoom.us/j/12345678901?pwd=changed-private');await editor.getByLabel('Meeting Passcode (optional)').fill('changed-private');await editor.getByRole('button',{name:'Save streaming configuration'}).click();await expect(editor.getByText('Streaming configuration saved.')).toBeVisible();
  const config=await page.evaluate(async(session)=>fetch(`/api/backend/admin/sessions/${session}/stream`).then(r=>r.json()),id);expect(config.configuration.providerType).toBe('ZOOM');
+});
+
+
+test('new session appears on an already open enrolled member dashboard',async({page,browser})=>{
+ await page.goto('/login');await page.getByLabel('Email').fill('admin@example.test');await page.getByLabel('Password').fill('DemoPass123!');await page.getByRole('button',{name:'Sign in →'}).click();await page.getByRole('link',{name:'Admin portal'}).click();
+ const name=`Live visibility ${Date.now()}`;
+ const catalog=page.locator('form').filter({has:page.getByRole('heading',{name:'Create a program'})});await catalog.getByLabel('Name',{exact:true}).fill(name);await catalog.getByLabel('Description').fill('Verify published session visibility');await catalog.getByRole('button',{name:'Create program'}).click();await expect(page.getByText(/Program created:/)).toBeVisible();
+ const context=await browser.newContext({baseURL:new URL(page.url()).origin,serviceWorkers:'block'});
+ try{
+  const member=await context.newPage();await member.goto('/register');await member.getByLabel('Your name').fill('Visibility Member');await member.getByLabel('Email').fill(`visibility-${Date.now()}@example.test`);await member.getByLabel('Password').fill('DemoPass123!');await member.getByRole('button',{name:'Create account →'}).click();
+  const program=member.locator('.programCard').filter({hasText:name});await program.getByRole('button',{name:'Join program →'}).click();await expect(program.getByRole('button',{name:'Enrolled ✓'})).toBeDisabled();
+  await member.clock.install();await member.goto('/');await expect(member.getByRole('heading',{name:/Good day/})).toBeVisible();await expect(member.locator('.classRow').filter({hasText:name})).toHaveCount(0);
+  const form=page.locator('form').filter({has:page.getByRole('heading',{name:'Create a live session'})});await form.getByLabel('Program').selectOption({label:name});await form.getByLabel('YouTube Live ID or URL').fill('2afajz1hd-E');await form.getByRole('button',{name:'Start live session now'}).click();await expect(form.getByRole('status')).toContainText(`Session created for ${name}`);
+  const link=form.getByRole('link');const session=(await link.getAttribute('href'))?.split('/').pop();expect(session).toBeTruthy();
+  await member.bringToFront();await member.clock.fastForward(31000);
+  const row=member.locator('.classRow').filter({hasText:name});await expect(row.getByRole('link',{name:'Enter class →'})).toBeVisible();await row.getByRole('link',{name:'Enter class →'}).click();await expect(member.getByRole('heading',{name,level:1})).toBeVisible();
+ }finally{await context.close()}
 });

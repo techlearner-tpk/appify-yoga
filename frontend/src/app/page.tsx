@@ -9,7 +9,18 @@ type Habit={id:string;name:string;done:boolean};
 type Today={profile:{display_name:string};sessions:MemberSlot[];habits:Habit[];progress:{streak:{current_days:number;longest_days:number};weeklyConsistency:number;challenges:{name:string;progress_days:number;duration_days:number}[]}};
 export default function TodayPage(){
  const [data,setData]=useState<Today|null>(null),[error,setError]=useState('');
- useEffect(()=>{api<Today>('/today').then(setData).catch(e=>setError(e.message))},[]);
+ useEffect(()=>{
+  let active=true,inFlight=false;
+  async function refresh(){
+   if(inFlight)return;inFlight=true;
+   try{const today=await api<Today>('/today');if(active){setData(today);setError('')}}
+   catch(e){if(active)setError((e as Error).message)}finally{inFlight=false}
+  }
+  function visible(){if(document.visibilityState==='visible')void refresh()}
+  void refresh();const timer=setInterval(visible,30000);
+  window.addEventListener('focus',visible);document.addEventListener('visibilitychange',visible);
+  return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',visible);document.removeEventListener('visibilitychange',visible)};
+ },[]);
  async function habit(id:string){try{await api(`/habits/${id}/complete`,{method:'POST'});setData(d=>d?{...d,habits:d.habits.map(h=>h.id===id?{...h,done:true}:h)}:d)}catch(e){setError((e as Error).message)}}
  const next=data?.sessions.find(s=>new Date(s.endsAt).getTime()>Date.now());
  return <Shell title={data?`Good day, ${data.profile.display_name.split(' ')[0]}.`:'Today'} subtitle="Small moments become lasting habits.">
