@@ -88,3 +88,14 @@ Ended or cancelled sessions cannot be corrected. Provider/meeting changes still 
 Members with the previous player open should choose **Finish class**, then **Enter class** to obtain a fresh authorization for the same session.
 The invitation URL's encoded `pwd` value is not the Meeting SDK passcode. Do not paste passcodes into chat, logs or source control.
 If Zoom has a waiting room, the host must start that same meeting and admit the member.
+
+### Diagnose a participant stuck waiting for a running host
+
+Confirm the meeting ID from the **running host window**, and the host's name marked **(Host)** in Participants.
+Compare joining through the app in Chrome/Edge with joining the same meeting through a normal Zoom client on a second device.
+This distinguishes a Zoom meeting-side problem from the SDK path; disabling Waiting Room alone does not prove that a host connection exists.
+
+The protected player reports these connection stages from Zoom's `onJoinSpeed` / `onMeetingStatus` events:
+waiting for host, waiting for admission, connected, reconnecting and disconnected.
+SDK failures show only a bounded numeric connection code. Raw vendor errors, meeting details, signatures and passcodes are never serialized into these diagnostics or console logs.
+A waiting screen is evidence of reaching that stage only; it does **not** verify live audio/video or a completed join.
